@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Wine Cellar",
+    "slug": "wine-cellar",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "winecellar",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.joaosouza.winecellar",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.joaosouza.winecellar",
+      "adaptiveIcon": {
+        "backgroundColor": "#621032",
+        "foregroundImage": "./assets/images/adaptive-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Wine Cellar to set your profile photo.",
+          "cameraPermission": "Allow Wine Cellar to take a profile photo.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Wine Cellar to scan wine labels.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#621032",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

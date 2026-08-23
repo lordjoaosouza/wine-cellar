@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# test / coverage
+coverage/
+
+# prisma
+src/generated/
+
+# logs
+*.log
+npm-debug.*
+pnpm-debug.*
+
+# OS
+.DS_Store

@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TuyaRegion {
+  US
+  EU
+  CN
+  IN
+}
+
+enum WineImageSource {
+  GPT
+  LABEL_SCAN
+  MANUAL
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  openaiApiKeyEncrypted String?
+
+  tuyaClientId              String?
+  tuyaClientSecretEncrypted String?
+  tuyaDeviceId              String?
+  tuyaRegion                TuyaRegion?
+
+  targetTemperatureC Float @default(13)
+  targetHumidityPct  Float @default(70)
+
+  loginCodes    LoginCode[]
+  refreshTokens RefreshToken[]
+  cellarItems   CellarItem[]
+  wishlistItems WishlistItem[]
+  ratings       Rating[]
+  recentViews   RecentView[]
+
+  @@map("users")
+}
+
+model LoginCode {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("login_codes")
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Wine {
+  id             String          @id @default(cuid())
+  normalizedKey  String          @unique
+  name           String
+  vintage        String?
+  type           String?
+  winery         String?
+  region         String?
+  country        String?
+  grapes         String[]        @default([])
+  price          String?
+  guideScore     Float?
+  tastingNotes   String?
+  pairings       String[]        @default([])
+  imageUrl       String?
+  imageSource    WineImageSource?
+  producerProfile String?
+  regionProfile  String?
+  servingNotes   String?
+  agingNotes     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  cellarItems   CellarItem[]
+  wishlistItems WishlistItem[]
+  ratings       Rating[]
+  recentViews   RecentView[]
+
+  @@index([name])
+  @@index([winery])
+  @@index([region])
+  @@map("wines")
+}
+
+model CellarItem {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wineId   String
+  wine     Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  quantity Int      @default(1)
+  savedAt  DateTime @default(now())
+
+  @@unique([userId, wineId])
+  @@map("cellar_items")
+}
+
+model WishlistItem {
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wineId  String
+  wine    Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  savedAt DateTime @default(now())
+
+  @@unique([userId, wineId])
+  @@map("wishlist_items")
+}
+
+model Rating {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wineId      String
+  wine        Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  score       Float
+  balance     Int
+  complexity  Int
+  intensity   Int
+  persistence Int
+  emotion     Int
+  visual      String
+  nose        String
+  palate      String
+  conclusion  String
+  photoUrl    String?
+  savedAt     DateTime @default(now())
+
+  @@unique([userId, wineId])
+  @@map("ratings")
+}
+
+model RecentView {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wineId   String
+  wine     Wine     @relation(fields: [wineId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@unique([userId, wineId])
+  @@index([userId, viewedAt])
+  @@map("recent_views")
+}
