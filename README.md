@@ -19,6 +19,10 @@
 
 Search wines — your own catalog first, GPT research as a fallback — track what's in your cellar and wishlist, rate what you've tasted, and watch your cellar's temperature and humidity via a Tuya sensor. Every account brings its own OpenAI API key and Tuya credentials, encrypted at rest, and the whole thing runs on hardware you own: a homelab box behind [Tailscale](https://tailscale.com/), reachable from your phone with no public ports and no third-party backend in between.
 
+<p align="center">
+  <img src="assets/demo.gif" width="280" alt="Wine Cellar app demo">
+</p>
+
 ## Features
 
 - **Wine search** — your own catalog first, GPT research as a fallback for anything new, deduplicated automatically.
