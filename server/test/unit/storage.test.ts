@@ -50,9 +50,7 @@ describe("filesystem storage", () => {
     ).rejects.toThrow();
   });
 
-  it("builds public URLs under /uploads", () => {
-    expect(publicUrlForImage("abc.png")).toBe(
-      "http://localhost:3000/uploads/abc.png"
-    );
+  it("stores photos as relative /uploads paths", () => {
+    expect(publicUrlForImage("abc.png")).toBe("/uploads/abc.png");
   });
 });

@@ -6,6 +6,7 @@ import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
 import { IMAGE_BODY_LIMIT } from "./lib/image-payload.js";
 import { logger } from "./lib/logger.js";
+import { absoluteUploadUrls } from "./lib/upload-urls.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { accountRouter } from "./modules/account/account.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -19,14 +20,13 @@ import { winesRouter } from "./modules/wines/wines.routes.js";
 import { wishlistRouter } from "./modules/wishlist/wishlist.routes.js";
 import { buildOpenApiDocument } from "./openapi/document.js";
 
-const IMAGE_UPLOAD_PATHS = [
-  "/wines/identify-label",
-  "/wines/:id/image",
-  "/ratings/:wineId/photo",
-];
+const IMAGE_UPLOAD_PATHS = ["/wines/identify-label", "/ratings/:wineId/photo"];
 
 export function createApp(): Express {
   const app = express();
+  // req.protocol/host (used for photo URLs) must reflect what the client
+  // called, also behind a local reverse proxy such as Tailscale Serve.
+  app.set("trust proxy", "loopback, linklocal, uniquelocal");
 
   app.use(helmet());
   app.use(
@@ -35,6 +35,7 @@ export function createApp(): Express {
   app.post(IMAGE_UPLOAD_PATHS, express.json({ limit: IMAGE_BODY_LIMIT }));
   app.use(express.json({ limit: "1mb" }));
   app.use(pinoHttp({ logger }));
+  app.use(absoluteUploadUrls);
   app.use("/uploads", uploadsRouter);
 
   app.get("/health", (_req, res) => {

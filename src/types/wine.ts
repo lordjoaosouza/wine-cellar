@@ -1,4 +1,5 @@
-export type WineImageSource = "GPT" | "LABEL_SCAN" | "MANUAL";
+/** WEB: a store's catalog photo; LABEL_SCAN: the photo taken to identify it. */
+export type WineImageSource = "WEB" | "LABEL_SCAN";
 
 /** A store listing the price was computed from, in the store's own currency. */
 export interface WineOffer {

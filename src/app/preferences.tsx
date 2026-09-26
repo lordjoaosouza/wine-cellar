@@ -1,5 +1,5 @@
 import { Stack, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Keyboard,
@@ -37,15 +37,11 @@ export default function PreferencesScreen() {
   const scrollRef = useScrollToTopOnNavigate();
   const { profile, updateProfile } = useUserProfile();
   const [name, setName] = useState(profile.name);
-  const [newApiKey, setNewApiKey] = useState("");
-  const [apiKeyVisible, setApiKeyVisible] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [serverSettingsOpen, setServerSettingsOpen] = useState(false);
   const [apiHost, setApiHost] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-  const apiKeyInputRef = useRef<TextInput>(null);
   const nameFocus = useFocusScale();
-  const apiKeyFocus = useFocusScale();
 
   useEffect(() => {
     let active = true;
@@ -79,23 +75,18 @@ export default function PreferencesScreen() {
     }
   };
 
-  const canUpdate = name.trim() !== profile.name || newApiKey.trim().length > 0;
+  const canUpdate = name.trim() !== profile.name;
 
   const handleUpdate = useCallback(async () => {
     if (!canUpdate) {
       return;
     }
     const nextName = name.trim();
-    const nextApiKey = newApiKey.trim();
     setName(nextName);
     Keyboard.dismiss();
     haptics.success();
-    await updateProfile({
-      name: nextName,
-      ...(nextApiKey ? { openaiApiKey: nextApiKey } : {}),
-    });
-    setNewApiKey("");
-  }, [canUpdate, name, newApiKey, updateProfile]);
+    await updateProfile({ name: nextName });
+  }, [canUpdate, name, updateProfile]);
 
   const handleAvatarPress = useCallback(async () => {
     haptics.tap();
@@ -144,14 +135,6 @@ export default function PreferencesScreen() {
     void handleSignOut();
   }, [handleSignOut]);
 
-  const focusApiKeyInput = useCallback(
-    () => apiKeyInputRef.current?.focus(),
-    []
-  );
-  const toggleApiKeyVisible = useCallback(
-    () => setApiKeyVisible((visible) => !visible),
-    []
-  );
   const openServerSettings = useCallback(() => setServerSettingsOpen(true), []);
   const closeServerSettings = useCallback(
     () => setServerSettingsOpen(false),
@@ -240,10 +223,10 @@ export default function PreferencesScreen() {
                     onBlur={nameFocus.onBlur}
                     onChangeText={setName}
                     onFocus={nameFocus.onFocus}
-                    onSubmitEditing={focusApiKeyInput}
+                    onSubmitEditing={handleUpdatePress}
                     placeholder="Your full name"
                     placeholderTextColor={Palette.muted}
-                    returnKeyType="next"
+                    returnKeyType="done"
                     selectionColor={Palette.wine}
                     style={styles.fieldInput}
                     submitBehavior="submit"
@@ -256,57 +239,6 @@ export default function PreferencesScreen() {
                 <Text style={styles.fieldLabel}>EMAIL</Text>
                 <Text style={styles.fieldStatic}>{profile.email}</Text>
               </GlassSurface>
-              <Animated.View style={apiKeyFocus.animatedStyle}>
-                <GlassSurface style={styles.field}>
-                  <Text style={styles.fieldLabel}>OPENAI API KEY</Text>
-                  <View style={styles.secretRow}>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoComplete="off"
-                      autoCorrect={false}
-                      importantForAutofill="no"
-                      onBlur={apiKeyFocus.onBlur}
-                      onChangeText={setNewApiKey}
-                      onFocus={apiKeyFocus.onFocus}
-                      onSubmitEditing={handleUpdatePress}
-                      placeholder={
-                        profile.hasOpenaiApiKey
-                          ? "•••••••• (already set)"
-                          : "sk-..."
-                      }
-                      placeholderTextColor={Palette.muted}
-                      ref={apiKeyInputRef}
-                      returnKeyType="done"
-                      secureTextEntry={!apiKeyVisible}
-                      selectionColor={Palette.wine}
-                      spellCheck={false}
-                      style={[styles.fieldInput, styles.secretInput]}
-                      textContentType="none"
-                      value={newApiKey}
-                    />
-                    <AnimatedPressable
-                      accessibilityLabel={
-                        apiKeyVisible ? "Hide API key" : "Show API key"
-                      }
-                      accessibilityRole="button"
-                      hitSlop={8}
-                      onPress={toggleApiKeyVisible}
-                      scaleTo={0.85}
-                      style={styles.secretToggle}
-                    >
-                      <Icon
-                        color={Palette.muted}
-                        name={apiKeyVisible ? "eyeOff" : "eye"}
-                        size={19}
-                      />
-                    </AnimatedPressable>
-                  </View>
-                </GlassSurface>
-              </Animated.View>
-              <Text style={styles.fieldHint}>
-                Stored on the server, encrypted at rest. Used to search wines,
-                read labels, and find photos — get a key at platform.openai.com.
-              </Text>
               <AnimatedPressable
                 accessibilityRole="button"
                 disabled={!canUpdate}
@@ -508,13 +440,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 12,
   },
-  fieldHint: {
-    color: Palette.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 2,
-    marginTop: -2,
-  },
   fieldInput: {
     backgroundColor: "transparent",
     color: Palette.ink,
@@ -560,14 +485,6 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: Palette.white, fontSize: 14, fontWeight: "700" },
   scrollContent: { alignItems: "center", paddingBottom: 68 },
   scrollView: { backgroundColor: "transparent", flex: 1 },
-  secretInput: { flex: 1 },
-  secretRow: { alignItems: "center", flexDirection: "row", gap: 10 },
-  secretToggle: {
-    alignItems: "center",
-    height: 30,
-    justifyContent: "center",
-    width: 30,
-  },
   sectionHeading: { marginTop: 4 },
   sectionTitle: {
     color: Palette.ink,

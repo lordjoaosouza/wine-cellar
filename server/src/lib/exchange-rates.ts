@@ -1,7 +1,7 @@
 import { logger } from "./logger.js";
 
-// Currencies Frankfurter (ECB reference rates) can convert to BRL. The prompt
-// restricts foreign offers to these, so every offer GPT returns is convertible.
+// Currencies Frankfurter (ECB reference rates) can convert to BRL. Listings
+// from stores abroad in any other currency are skipped.
 export const FOREIGN_CURRENCIES = [
   "USD",
   "EUR",

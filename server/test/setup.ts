@@ -9,4 +9,3 @@ process.env.ENCRYPTION_KEY ??= Buffer.alloc(32, 7).toString("base64");
 process.env.RESEND_API_KEY ??= "re_test";
 process.env.EMAIL_FROM ??= "test@example.com";
 process.env.UPLOADS_DIR ??= "test-uploads";
-process.env.PUBLIC_URL ??= "http://localhost:3000";

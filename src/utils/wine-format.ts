@@ -61,3 +61,11 @@ export function formatOfferAmount(amount: number, currency: string) {
     return `${currency} ${amount.toFixed(2)}`;
   }
 }
+
+const STORE_DOMAIN_PATTERN = /^https?:\/\/(?:www\.)?([^/?#]+)/i;
+
+/** "https://www.vinhosevinhos.com/miolo.html" → "vinhosevinhos.com" */
+export function storeDomain(url: string) {
+  const [, domain = null] = url.match(STORE_DOMAIN_PATTERN) ?? [];
+  return domain;
+}

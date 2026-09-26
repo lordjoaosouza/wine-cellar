@@ -39,7 +39,7 @@ describe("wine store offers", () => {
     expect(res.body).not.toHaveProperty("guideScore");
   });
 
-  it("imports an archive exported before offers replaced guide scores", async () => {
+  it("imports an archive exported before offers, local AI and photo changes", async () => {
     const session = await loginAs("legacy-import@example.com");
     const legacyWine = {
       agingNotes: null,
@@ -47,8 +47,9 @@ describe("wine store offers", () => {
       grapes: ["Malbec"],
       guideScore: 4.1,
       id: "legacy-wine",
-      imageSource: null,
-      imageUrl: null,
+      // Old versions called store photos "GPT" and allowed "MANUAL" uploads.
+      imageSource: "GPT",
+      imageUrl: "https://cdn.example.com/catena.png",
       name: "Catena Malbec",
       pairings: [],
       price: "~R$ 190",
@@ -87,5 +88,6 @@ describe("wine store offers", () => {
     });
     expect(stored.offers).toEqual([]);
     expect(stored.price).toBe("~R$ 190");
+    expect(stored.imageSource).toBe("WEB");
   });
 });

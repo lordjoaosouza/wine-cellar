@@ -58,8 +58,7 @@ registry.registerPath({
     },
   },
   security,
-  summary:
-    "Update the authenticated user's profile, OpenAI key, or climate target",
+  summary: "Update the authenticated user's profile or climate target",
   tags: ["Users"],
 });
 

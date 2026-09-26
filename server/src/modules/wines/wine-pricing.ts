@@ -1,8 +1,8 @@
 import { z } from "zod";
 import type { BrlRates } from "../../lib/exchange-rates.js";
 
-/** One store listing as GPT reports it, in the store's own currency. */
-export interface GptWineOffer {
+/** One store listing as found on its product page, in the store's own currency. */
+export interface StoreListing {
   amount: number;
   country: string;
   currency: string;
@@ -30,7 +30,7 @@ function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function isValidOffer(offer: GptWineOffer): boolean {
+function isValidOffer(offer: StoreListing): boolean {
   return (
     offer.store.trim().length > 0 &&
     HTTP_URL_PATTERN.test(offer.url) &&
@@ -40,12 +40,12 @@ function isValidOffer(offer: GptWineOffer): boolean {
 }
 
 /**
- * Validates GPT's offers, converts foreign ones to BRL, and keeps one offer
+ * Validates store listings, converts foreign ones to BRL, and keeps one offer
  * per store. Foreign offers are dropped when there is no rate for their
  * currency (e.g. the exchange-rate API has never been reachable).
  */
 export function toWineOffers(
-  offers: GptWineOffer[],
+  offers: StoreListing[],
   rates: BrlRates | null
 ): WineOffer[] {
   const seenStores = new Set<string>();

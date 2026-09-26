@@ -6,6 +6,7 @@ import type { Readable } from "node:stream";
 import { env } from "../config/env.js";
 import { HttpError } from "./http-error.js";
 import type { DecodedImage } from "./image-payload.js";
+import { uploadPath } from "./upload-urls.js";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -41,6 +42,7 @@ export async function uploadImage(
   // Write-then-rename so a crash mid-write never leaves a truncated image
   // behind under a key that's already referenced from the database.
   const temporary = `${target}.tmp`;
+  await ensureUploadsDirExists();
   await writeFile(temporary, file.buffer);
   await rename(temporary, target);
   return key;
@@ -60,6 +62,7 @@ export async function getImage(key: string): Promise<StoredImage> {
   };
 }
 
+/** Where a stored image is served, as saved in the database — see upload-urls.ts. */
 export function publicUrlForImage(key: string): string {
-  return new URL(`/uploads/${key}`, env.PUBLIC_URL).toString();
+  return uploadPath(key);
 }

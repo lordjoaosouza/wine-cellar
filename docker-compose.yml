@@ -14,6 +14,15 @@ services:
       timeout: 5s
       retries: 10
 
+  searxng:
+    # Metasearch for wine research; only the API talks to it (no ports published).
+    image: searxng/searxng:2026.9.25-12f8b6515
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-change-me-in-root-env}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+
   api:
     build:
       context: .
@@ -22,12 +31,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      searxng:
+        condition: service_started
     env_file:
       - server/.env
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-wine_cellar}:${POSTGRES_PASSWORD:-wine_cellar}@postgres:5432/${POSTGRES_DB:-wine_cellar}
       UPLOADS_DIR: /data/uploads
+      SEARXNG_URL: http://searxng:8080
+      # Ollama runs on the host (it needs the GPU, which containers on macOS can't use).
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      # Makes host.docker.internal resolve on Linux too (Docker Desktop has it built in).
+      - host.docker.internal:host-gateway
     volumes:
       - uploads:/data/uploads
     ports:

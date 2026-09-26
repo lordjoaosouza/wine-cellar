@@ -6,11 +6,11 @@ import {
   type WineOffer,
   wineOffersFromJson,
 } from "./wine-pricing.js";
-import type { GptWineResult } from "./wine-research.js";
+import type { ResearchedWine } from "./wine-research.js";
 import type { WineDto } from "./wines.schemas.js";
 
-export function gptResultToWineData(
-  result: GptWineResult,
+export function researchedWineToData(
+  result: ResearchedWine,
   offers: WineOffer[]
 ): Prisma.WineCreateInput {
   return {

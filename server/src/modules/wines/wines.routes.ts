@@ -1,13 +1,16 @@
 import { Router } from "express";
-import { z } from "zod";
+import type { z } from "zod";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { decodeImage, imageUploadSchema } from "../../lib/image-payload.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
 import { bearerAuth, registry } from "../../openapi/registry.js";
+import { getResearchJob, startResearchJob } from "./research-jobs.js";
 import {
-  setWineImageUrlSchema,
+  researchJobParamsSchema,
+  researchJobSchema,
   wineIdParamsSchema,
+  wineResearchBodySchema,
   wineSchema,
   wineSearchQuerySchema,
   wineSearchResponseSchema,
@@ -15,17 +18,23 @@ import {
 import {
   getWineDetails,
   identifyWineFromLabel,
-  refreshWineFromGpt,
-  searchWineImageWithGpt,
+  refreshWine,
+  researchWines,
   searchWines,
-  setWineImageFile,
-  setWineImageUrl,
 } from "./wines.service.js";
 
 export const winesRouter = Router();
 winesRouter.use(requireAuth);
 
 const security = [{ [bearerAuth.name]: [] }];
+
+const jobStartedResponse = {
+  202: {
+    content: { "application/json": { schema: researchJobSchema } },
+    description:
+      "Research job started — poll GET /wines/research/{jobId} for progress and results",
+  },
+};
 
 registry.registerPath({
   method: "get",
@@ -39,7 +48,7 @@ registry.registerPath({
   },
   security,
   summary:
-    "Search wines — the local catalog first, falling back to GPT research when nothing matches",
+    "Search the local wine catalog (fast). Use POST /wines/research to look for new wines on the web.",
   tags: ["Wines"],
 });
 
@@ -47,16 +56,58 @@ winesRouter.get(
   "/search",
   validate({ query: wineSearchQuerySchema }),
   asyncHandler(async (req, res) => {
-    const { q, refresh } = req.query as unknown as z.infer<
-      typeof wineSearchQuerySchema
-    >;
-    const { results, total } = await searchWines(
-      req.userId,
-      q,
-      refresh === true
-    );
-    res.json({ results, total });
+    const { q } = req.query as unknown as z.infer<typeof wineSearchQuerySchema>;
+    res.json(await searchWines(q));
   })
+);
+
+registry.registerPath({
+  method: "post",
+  path: "/wines/research",
+  request: {
+    body: {
+      content: { "application/json": { schema: wineResearchBodySchema } },
+    },
+  },
+  responses: jobStartedResponse,
+  security,
+  summary:
+    "Research wines on the web with the local AI model (stores first, then producer pages)",
+  tags: ["Wines"],
+});
+
+winesRouter.post(
+  "/research",
+  validate({ body: wineResearchBodySchema }),
+  (req, res) => {
+    const { q } = req.body as z.infer<typeof wineResearchBodySchema>;
+    res
+      .status(202)
+      .json(startResearchJob(req.userId, (report) => researchWines(q, report)));
+  }
+);
+
+registry.registerPath({
+  method: "get",
+  path: "/wines/research/{jobId}",
+  request: { params: researchJobParamsSchema },
+  responses: {
+    200: {
+      content: { "application/json": { schema: researchJobSchema } },
+      description: "Job progress; results are set once status is done",
+    },
+  },
+  security,
+  summary: "Poll a research job",
+  tags: ["Wines"],
+});
+
+winesRouter.get(
+  "/research/:jobId",
+  validate({ params: researchJobParamsSchema }),
+  (req, res) => {
+    res.json(getResearchJob(req.userId, req.params.jobId as string));
+  }
 );
 
 registry.registerPath({
@@ -65,25 +116,26 @@ registry.registerPath({
   request: {
     body: { content: { "application/json": { schema: imageUploadSchema } } },
   },
-  responses: {
-    200: {
-      content: { "application/json": { schema: z.array(wineSchema) } },
-      description: "Candidate wines",
-    },
-  },
+  responses: jobStartedResponse,
   security,
   summary:
-    "Identify a wine from a photographed label (GPT vision) and research it",
+    "Identify a wine from a photographed label (local vision model) and research it",
   tags: ["Wines"],
 });
 
 winesRouter.post(
   "/identify-label",
   validate({ body: imageUploadSchema }),
-  asyncHandler(async (req, res) => {
-    const { dataUri } = decodeImage(req.body.image);
-    res.json(await identifyWineFromLabel(req.userId, dataUri));
-  })
+  (req, res) => {
+    const photo = decodeImage(req.body.image);
+    res
+      .status(202)
+      .json(
+        startResearchJob(req.userId, (report) =>
+          identifyWineFromLabel(photo, report)
+        )
+      );
+  }
 );
 
 registry.registerPath({
@@ -113,15 +165,10 @@ registry.registerPath({
   method: "post",
   path: "/wines/{id}/refresh",
   request: { params: wineIdParamsSchema },
-  responses: {
-    200: {
-      content: { "application/json": { schema: wineSchema } },
-      description: "Refreshed wine",
-    },
-  },
+  responses: jobStartedResponse,
   security,
   summary:
-    "Re-verify this exact wine against GPT and overwrite its stored data",
+    "Re-research this exact wine on the web and overwrite its stored data",
   tags: ["Wines"],
 });
 
@@ -129,89 +176,14 @@ winesRouter.post(
   "/:id/refresh",
   validate({ params: wineIdParamsSchema }),
   asyncHandler(async (req, res) => {
-    res.json(await refreshWineFromGpt(req.userId, req.params.id as string));
-  })
-);
-
-registry.registerPath({
-  method: "put",
-  path: "/wines/{id}/image",
-  request: {
-    body: {
-      content: { "application/json": { schema: setWineImageUrlSchema } },
-    },
-    params: wineIdParamsSchema,
-  },
-  responses: {
-    200: {
-      content: { "application/json": { schema: wineSchema } },
-      description: "Updated wine",
-    },
-  },
-  security,
-  summary: "Set a wine's image from a URL (manual override)",
-  tags: ["Wines"],
-});
-
-winesRouter.put(
-  "/:id/image",
-  validate({ body: setWineImageUrlSchema, params: wineIdParamsSchema }),
-  asyncHandler(async (req, res) => {
-    res.json(await setWineImageUrl(req.params.id as string, req.body.imageUrl));
-  })
-);
-
-registry.registerPath({
-  method: "post",
-  path: "/wines/{id}/image",
-  request: {
-    body: { content: { "application/json": { schema: imageUploadSchema } } },
-    params: wineIdParamsSchema,
-  },
-  responses: {
-    200: {
-      content: { "application/json": { schema: wineSchema } },
-      description: "Updated wine",
-    },
-  },
-  security,
-  summary: "Upload a label photo for a wine (manual override)",
-  tags: ["Wines"],
-});
-
-winesRouter.post(
-  "/:id/image",
-  validate({ body: imageUploadSchema, params: wineIdParamsSchema }),
-  asyncHandler(async (req, res) => {
-    res.json(
-      await setWineImageFile(
-        req.params.id as string,
-        decodeImage(req.body.image)
-      )
-    );
-  })
-);
-
-registry.registerPath({
-  method: "post",
-  path: "/wines/{id}/image/search",
-  request: { params: wineIdParamsSchema },
-  responses: {
-    200: {
-      content: { "application/json": { schema: wineSchema } },
-      description: "Wine, with imageUrl set if a photo was found",
-    },
-  },
-  security,
-  summary:
-    "Opt-in: ask GPT to find a real product photo for this wine (slow, not used by default)",
-  tags: ["Wines"],
-});
-
-winesRouter.post(
-  "/:id/image/search",
-  validate({ params: wineIdParamsSchema }),
-  asyncHandler(async (req, res) => {
-    res.json(await searchWineImageWithGpt(req.userId, req.params.id as string));
+    const id = req.params.id as string;
+    await getWineDetails(id);
+    res
+      .status(202)
+      .json(
+        startResearchJob(req.userId, async (report) => [
+          await refreshWine(id, report),
+        ])
+      );
   })
 );

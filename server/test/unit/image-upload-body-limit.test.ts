@@ -9,15 +9,11 @@ describe("image upload body limit", () => {
 
   it("lets the image upload routes accept bodies above the default JSON limit", async () => {
     const responses = await Promise.all(
-      [
-        "/wines/identify-label",
-        "/wines/some-id/image",
-        "/ratings/some-id/photo",
-      ].map((path) => request(app).post(path).send({ image: twoMegabytes }))
+      ["/wines/identify-label", "/ratings/some-id/photo"].map((path) =>
+        request(app).post(path).send({ image: twoMegabytes })
+      )
     );
-    expect(responses.map((response) => response.status)).toEqual([
-      401, 401, 401,
-    ]);
+    expect(responses.map((response) => response.status)).toEqual([401, 401]);
   });
 
   it("keeps the default JSON limit everywhere else", async () => {

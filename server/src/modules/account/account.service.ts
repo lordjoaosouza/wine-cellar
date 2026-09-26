@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
+import { toStoredUploadUrl } from "../../lib/upload-urls.js";
 import { ratingFieldsFromDto, ratingToDto } from "../ratings/ratings.mapper.js";
 import { wineNormalizedKey } from "../wines/wine-normalize.js";
 import { wineToDto } from "../wines/wines.mapper.js";
@@ -10,6 +11,8 @@ function wineDtoToPrismaData(wine: WineDto) {
   const { id: _id, priceMarket: _priceMarket, ...rest } = wine;
   return {
     ...rest,
+    // Archives carry absolute photo URLs; this server stores relative ones.
+    imageUrl: wine.imageUrl && toStoredUploadUrl(wine.imageUrl),
     normalizedKey: wineNormalizedKey(wine.winery, wine.name, wine.vintage),
   };
 }
@@ -75,7 +78,9 @@ export async function importAccount(
 
     await tx.user.update({
       data: {
-        avatarUrl: archive.profile.avatarUrl,
+        avatarUrl:
+          archive.profile.avatarUrl &&
+          toStoredUploadUrl(archive.profile.avatarUrl),
         name: archive.profile.name,
         targetHumidityPct: archive.profile.targetHumidityPct,
         targetTemperatureC: archive.profile.targetTemperatureC,
@@ -111,7 +116,10 @@ export async function importAccount(
     }
 
     for (const rating of archive.ratings) {
-      const { wineId, savedAt, ...fields } = ratingFieldsFromDto(rating);
+      const { wineId, savedAt, ...fields } = ratingFieldsFromDto({
+        ...rating,
+        photoUrl: rating.photoUrl && toStoredUploadUrl(rating.photoUrl),
+      });
       // biome-ignore lint/performance/noAwaitInLoops: writes share one interactive transaction connection and must run sequentially
       await tx.rating.upsert({
         create: { savedAt: new Date(savedAt), userId, wineId, ...fields },

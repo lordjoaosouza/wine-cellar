@@ -6,7 +6,7 @@ export function buildOpenApiDocument() {
   return generator.generateDocument({
     info: {
       description:
-        "Backend for the Wine Cellar app: wine catalog search (DB-first, GPT fallback), cellar, wishlist, ratings, and Tuya cellar sensor integration.",
+        "Backend for the Wine Cellar app: wine catalog search (DB-first, local-AI web research fallback), cellar, wishlist, ratings, and Tuya cellar sensor integration.",
       title: "Wine Cellar API",
       version: "1.0.0",
     },

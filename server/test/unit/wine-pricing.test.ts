@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   aggregatePrices,
   formatBrlPrice,
-  type GptWineOffer,
   priceFromOffers,
   roundBrlPrice,
+  type StoreListing,
   toWineOffers,
   wineOffersFromJson,
 } from "../../src/modules/wines/wine-pricing.js";
 
-function offer(overrides: Partial<GptWineOffer>): GptWineOffer {
+function offer(overrides: Partial<StoreListing>): StoreListing {
   return {
     amount: 100,
     country: "Brazil",
