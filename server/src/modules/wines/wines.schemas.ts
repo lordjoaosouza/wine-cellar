@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { wineOfferSchema } from "./wine-pricing.js";
 import { WINE_TYPES } from "./wine-prompts.js";
 
 export const wineTypeSchema = z.enum(WINE_TYPES);
@@ -7,13 +8,15 @@ export const wineSchema = z.object({
   agingNotes: z.string().nullable(),
   country: z.string().nullable(),
   grapes: z.array(z.string()),
-  guideScore: z.number().nullable(),
   id: z.string(),
   imageSource: z.enum(["GPT", "LABEL_SCAN", "MANUAL"]).nullable(),
   imageUrl: z.string().nullable(),
   name: z.string(),
+  // Defaulted so archives exported before offers existed still import.
+  offers: z.array(wineOfferSchema).default([]),
   pairings: z.array(z.string()),
   price: z.string().nullable(),
+  priceMarket: z.enum(["BR", "INTERNATIONAL"]).nullable().default(null),
   producerProfile: z.string().nullable(),
   region: z.string().nullable(),
   regionProfile: z.string().nullable(),

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   agingNotesFor,
-  normalizeGuideScore,
   servingNotesFor,
 } from "../../src/modules/wines/wine-notes.js";
 
@@ -46,35 +45,5 @@ describe("agingNotesFor", () => {
     expect(agingNotesFor("Sparkling wine", ["Cabernet Sauvignon"])).toMatch(
       YOUNG_PATTERN
     );
-  });
-});
-
-describe("normalizeGuideScore", () => {
-  it("passes through an already-0-5 star score", () => {
-    expect(normalizeGuideScore(4.6)).toBe(4.6);
-  });
-
-  it("halves a 10-point score", () => {
-    expect(normalizeGuideScore(8.4)).toBe(4.2);
-  });
-
-  it("scales a 20-point score down to 5 stars", () => {
-    expect(normalizeGuideScore(17.5)).toBe(4.4);
-  });
-
-  it("scales a 100-point score down to 5 stars", () => {
-    expect(normalizeGuideScore(92)).toBe(4.6);
-  });
-
-  it("clamps to 5 for an out-of-range value", () => {
-    expect(normalizeGuideScore(105)).toBeLessThanOrEqual(5);
-  });
-
-  it("returns null for null input", () => {
-    expect(normalizeGuideScore(null)).toBeNull();
-  });
-
-  it("returns null for a non-finite value", () => {
-    expect(normalizeGuideScore(Number.NaN)).toBeNull();
   });
 });

@@ -85,7 +85,8 @@ model Wine {
   country        String?
   grapes         String[]        @default([])
   price          String?
-  guideScore     Float?
+  /// Store listings the price was computed from — see wine-pricing.ts.
+  offers         Json            @default("[]")
   tastingNotes   String?
   pairings       String[]        @default([])
   imageUrl       String?

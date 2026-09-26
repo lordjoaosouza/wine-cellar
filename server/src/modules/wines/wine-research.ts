@@ -4,6 +4,7 @@ import {
   parseJsonResponse,
   WINE_RESEARCH_MODEL,
 } from "./openai-client.js";
+import type { GptWineOffer } from "./wine-pricing.js";
 import {
   LABEL_PHOTO_INSTRUCTIONS,
   WINE_RESULT_JSON_SCHEMA,
@@ -15,11 +16,10 @@ const UNREADABLE_PATTERN = /^unreadable$/i;
 export interface GptWineResult {
   country: string | null;
   grapes: string[];
-  guideScore: number | null;
   imageUrl: string | null;
   name: string;
+  offers: GptWineOffer[];
   pairings: string[];
-  price: string | null;
   producer: string | null;
   producerProfile: string | null;
   region: string | null;

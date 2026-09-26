@@ -24,7 +24,8 @@ const MAX_RECENT_VIEWS = 8;
 
 const wineCache = createLocalCollection<Wine>({
   getId: (wine) => wine.id,
-  key: "@wine-cellar:wine-cache:v2",
+  // v3: wines gained `offers`; older cached entries lack it.
+  key: "@wine-cellar:wine-cache:v3",
   maxItems: MAX_CACHED_WINES,
 });
 
@@ -37,7 +38,6 @@ const recentViewsCache = createLocalCollection<WineRecentView>({
 function toSearchResult(wine: Wine): WineSearchResult {
   return {
     country: wine.country,
-    guideScore: wine.guideScore,
     id: wine.id,
     imageSource: wine.imageSource,
     imageUrl: wine.imageUrl,

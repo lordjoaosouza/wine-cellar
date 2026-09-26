@@ -70,26 +70,3 @@ export function agingNotesFor(
     ? "This wine's structure gives it real aging potential — many examples reward 5 to 10 years resting in the cellar."
     : "Approachable now, though it can hold pleasantly for another 2 to 5 years in the cellar.";
 }
-
-const MAX_STARS = 5;
-
-function toStarScale(score: number): number {
-  if (score <= MAX_STARS) {
-    return score;
-  }
-  if (score <= 10) {
-    return score / 2;
-  }
-  if (score <= 20) {
-    return score / 4;
-  }
-  return score / 20;
-}
-
-export function normalizeGuideScore(score: number | null): number | null {
-  if (score === null || !Number.isFinite(score)) {
-    return null;
-  }
-  const stars = toStarScale(score);
-  return Math.round(Math.min(MAX_STARS, Math.max(0, stars)) * 10) / 10;
-}

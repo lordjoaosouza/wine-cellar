@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { FOREIGN_CURRENCIES } from "../../lib/exchange-rates.js";
 
 export const WINE_TYPES = [
   "Dry red",
@@ -23,7 +24,22 @@ const PROMPTS_DIR = new URL("../../../prompts/", import.meta.url);
 export const WINE_SEARCH_SYSTEM_PROMPT = readFileSync(
   new URL("wine-search.md", PROMPTS_DIR),
   "utf8"
-).trimEnd();
+)
+  .replaceAll("{{FOREIGN_CURRENCIES}}", FOREIGN_CURRENCIES.join(", "))
+  .trimEnd();
+
+const OFFER_JSON_SCHEMA = {
+  additionalProperties: false,
+  properties: {
+    amount: { exclusiveMinimum: 0, type: "number" },
+    country: { type: "string" },
+    currency: { enum: ["BRL", ...FOREIGN_CURRENCIES], type: "string" },
+    store: { type: "string" },
+    url: { type: "string" },
+  },
+  required: ["store", "country", "url", "currency", "amount"],
+  type: "object",
+} as const;
 
 export const WINE_RESULT_JSON_SCHEMA = {
   additionalProperties: false,
@@ -34,11 +50,10 @@ export const WINE_RESULT_JSON_SCHEMA = {
         properties: {
           country: { type: ["string", "null"] },
           grapes: { items: { type: "string" }, type: "array" },
-          guideScore: { maximum: 5, minimum: 0, type: ["number", "null"] },
           imageUrl: { type: ["string", "null"] },
           name: { type: "string" },
+          offers: { items: OFFER_JSON_SCHEMA, type: "array" },
           pairings: { items: { type: "string" }, type: "array" },
-          price: { pattern: "^~R\\$ [0-9.]+$", type: ["string", "null"] },
           producer: { type: ["string", "null"] },
           producerProfile: { type: ["string", "null"] },
           region: { maxLength: 25, type: ["string", "null"] },
@@ -55,8 +70,7 @@ export const WINE_RESULT_JSON_SCHEMA = {
           "country",
           "region",
           "grapes",
-          "price",
-          "guideScore",
+          "offers",
           "tastingNotes",
           "pairings",
           "producerProfile",

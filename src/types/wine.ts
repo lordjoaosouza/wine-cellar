@@ -1,16 +1,30 @@
 export type WineImageSource = "GPT" | "LABEL_SCAN" | "MANUAL";
 
+/** A store listing the price was computed from, in the store's own currency. */
+export interface WineOffer {
+  amount: number;
+  amountBrl: number;
+  country: string;
+  currency: string;
+  store: string;
+  url: string;
+}
+
+/** BR = Brazilian stores; INTERNATIONAL = stores abroad, converted to BRL. */
+export type WinePriceMarket = "BR" | "INTERNATIONAL";
+
 export interface Wine {
   agingNotes: string | null;
   country: string | null;
   grapes: string[];
-  guideScore: number | null;
   id: string;
   imageSource: WineImageSource | null;
   imageUrl: string | null;
   name: string;
+  offers: WineOffer[];
   pairings: string[];
   price: string | null;
+  priceMarket: WinePriceMarket | null;
   producerProfile: string | null;
   region: string | null;
   regionProfile: string | null;
@@ -34,7 +48,6 @@ export type WineSearchResult = Pick<
   | "country"
   | "imageUrl"
   | "imageSource"
-  | "guideScore"
 >;
 
 export interface WineSearchResponse {

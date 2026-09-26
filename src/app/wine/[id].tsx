@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { openBrowserAsync } from "expo-web-browser";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActionSheetIOS,
@@ -49,9 +50,10 @@ import {
   uploadWineImage,
 } from "@/services/wine-search";
 import { isOnWishlist, toggleWishlist } from "@/services/wine-wishlist";
-import type { WineDetail, WineRating } from "@/types/wine";
+import type { WineDetail, WineOffer, WineRating } from "@/types/wine";
 import { haptics } from "@/utils/haptics";
 import { promptPickPhoto } from "@/utils/pick-photo";
+import { formatOfferAmount } from "@/utils/wine-format";
 
 function GrapeChip({ grape }: { grape: string }) {
   return (
@@ -154,15 +156,6 @@ function WineLabelStage({
       ) : (
         <WineIllustration fill type={detail.type} />
       )}
-      {detail.guideScore === null ? null : (
-        <View
-          accessibilityLabel={`Guide score ${detail.guideScore.toFixed(1)}`}
-          style={styles.guideBadge}
-        >
-          <Icon color={Palette.wine} name="starFilled" size={16} />
-          <Text style={styles.guideValue}>{detail.guideScore.toFixed(1)}</Text>
-        </View>
-      )}
       <AnimatedPressable
         accessibilityLabel="Change this wine's photo"
         accessibilityRole="button"
@@ -205,6 +198,11 @@ function WineHeroInfo({
         <View style={styles.priceBlock}>
           <Text style={styles.producerLabel}>PRICE</Text>
           <Text style={styles.producerName}>{detail.price}</Text>
+          {detail.priceMarket === "INTERNATIONAL" ? (
+            <Text style={styles.priceHint}>
+              From stores abroad, converted to reais
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -469,6 +467,67 @@ function PairingSection({ pairings }: { pairings: string[] }) {
   );
 }
 
+function OfferRow({ offer, last }: { offer: WineOffer; last: boolean }) {
+  const isForeign = offer.currency !== "BRL";
+  const amount = formatOfferAmount(offer.amount, offer.currency);
+  const openStore = useCallback(() => {
+    haptics.tap();
+    void openBrowserAsync(offer.url);
+  }, [offer.url]);
+
+  return (
+    <AnimatedPressable
+      accessibilityHint="Opens the store's page for this wine"
+      accessibilityLabel={`${offer.store}, ${amount}`}
+      accessibilityRole="link"
+      onPress={openStore}
+    >
+      <View style={[styles.serveRow, !last && styles.serveRowBorder]}>
+        <View style={styles.serveIcon}>
+          <Icon color={Palette.plum} name="store" size={18} />
+        </View>
+        <View style={styles.offerStore}>
+          <Text numberOfLines={1} style={styles.offerStoreName}>
+            {offer.store}
+          </Text>
+          <Text numberOfLines={1} style={styles.offerCountry}>
+            {offer.country}
+          </Text>
+        </View>
+        <View style={styles.offerPrice}>
+          <Text style={styles.offerAmount}>{amount}</Text>
+          {isForeign ? (
+            <Text style={styles.offerConverted}>
+              {`~${formatOfferAmount(offer.amountBrl, "BRL")}`}
+            </Text>
+          ) : null}
+        </View>
+        <Icon color={Palette.muted} name="externalLink" size={16} />
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+function WhereToBuySection({ offers }: { offers: WineOffer[] }) {
+  if (offers.length === 0) {
+    return null;
+  }
+  return (
+    <View style={styles.section}>
+      <SectionHeader eyebrow="WHERE TO BUY" icon="store" title="In stores" />
+      <GlassSurface style={styles.serveCard}>
+        {offers.map((offer, index) => (
+          <OfferRow
+            key={offer.url}
+            last={index === offers.length - 1}
+            offer={offer}
+          />
+        ))}
+      </GlassSurface>
+    </View>
+  );
+}
+
 function WineDetailContent({
   detail,
   compact,
@@ -522,6 +581,7 @@ function WineDetailContent({
         servingNotes={detail.servingNotes}
       />
       <PairingSection pairings={detail.pairings} />
+      <WhereToBuySection offers={detail.offers} />
     </>
   );
 }
@@ -947,20 +1007,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.8,
   },
-  guideBadge: {
-    alignItems: "center",
-    backgroundColor: Palette.white,
-    borderRadius: Radii.pill,
-    flexDirection: "row",
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-    position: "absolute",
-    right: 14,
-    top: 14,
-    ...Shadows.raised,
-  },
-  guideValue: { color: Palette.wine, fontSize: 15, fontWeight: "800" },
   halfAction: { flex: 1 },
   halfButton: {
     alignItems: "center",
@@ -1024,6 +1070,12 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     fontSize: 13,
   },
+  offerAmount: { color: Palette.ink, fontSize: 14, fontWeight: "700" },
+  offerConverted: { color: Palette.muted, fontSize: 11, marginTop: 2 },
+  offerCountry: { color: Palette.muted, fontSize: 12, marginTop: 2 },
+  offerPrice: { alignItems: "flex-end" },
+  offerStore: { flex: 1 },
+  offerStoreName: { color: Palette.ink, fontSize: 14, fontWeight: "600" },
   page: { maxWidth: 1100, paddingHorizontal: 24, width: "100%" },
   pairingBullet: {
     backgroundColor: Palette.plum,
@@ -1048,6 +1100,7 @@ const styles = StyleSheet.create({
   },
   pairingList: { gap: 10, marginTop: 15 },
   priceBlock: { marginTop: 28 },
+  priceHint: { color: Palette.muted, fontSize: 11, marginTop: 2 },
   producerBlock: { marginTop: 28 },
   producerBlockSpaced: { marginTop: 14 },
   producerLabel: {

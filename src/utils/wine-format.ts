@@ -49,3 +49,15 @@ export function wineOrigin(wine: Pick<Wine, "winery" | "region" | "country">) {
     "Producer not listed"
   );
 }
+
+/** "R$ 189,90" for BRL, "$24.99" / "€25.00" for stores abroad. */
+export function formatOfferAmount(amount: number, currency: string) {
+  try {
+    return new Intl.NumberFormat(currency === "BRL" ? "pt-BR" : "en-US", {
+      currency,
+      style: "currency",
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}

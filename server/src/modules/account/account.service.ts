@@ -6,7 +6,8 @@ import type { WineDto } from "../wines/wines.schemas.js";
 import type { AccountArchive } from "./account.schemas.js";
 
 function wineDtoToPrismaData(wine: WineDto) {
-  const { id: _id, ...rest } = wine;
+  // priceMarket is derived from offers on read, not stored.
+  const { id: _id, priceMarket: _priceMarket, ...rest } = wine;
   return {
     ...rest,
     normalizedKey: wineNormalizedKey(wine.winery, wine.name, wine.vintage),

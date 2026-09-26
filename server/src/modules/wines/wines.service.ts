@@ -1,10 +1,12 @@
-import type { Wine } from "../../generated/prisma/client.js";
+import type { Prisma, Wine } from "../../generated/prisma/client.js";
+import { getBrlRates } from "../../lib/exchange-rates.js";
 import { HttpError } from "../../lib/http-error.js";
 import type { DecodedImage } from "../../lib/image-payload.js";
 import { prisma } from "../../lib/prisma.js";
 import { publicUrlForImage, uploadImage } from "../../lib/storage.js";
 import { getUserOpenAiClient } from "./openai-client.js";
 import { findWineImageUrl } from "./wine-image-search.js";
+import { toWineOffers } from "./wine-pricing.js";
 import {
   type GptWineResult,
   researchWineFromPhoto,
@@ -30,10 +32,20 @@ function searchLocalWines(query: string): Promise<Wine[]> {
   });
 }
 
+async function toWineData(
+  result: GptWineResult
+): Promise<Prisma.WineCreateInput> {
+  const hasForeignOffers = result.offers.some(
+    (offer) => offer.currency !== "BRL"
+  );
+  const rates = hasForeignOffers ? await getBrlRates() : null;
+  return gptResultToWineData(result, toWineOffers(result.offers, rates));
+}
+
 function upsertWines(results: GptWineResult[]): Promise<Wine[]> {
   return Promise.all(
-    results.map((result) => {
-      const data = gptResultToWineData(result);
+    results.map(async (result) => {
+      const data = await toWineData(result);
       return prisma.wine.upsert({
         create: data,
         update: data,
@@ -104,11 +116,10 @@ export async function refreshWineFromGpt(
     throw HttpError.badRequest("GPT could not re-verify this wine");
   }
 
-  const data = gptResultToWineData(refined);
+  const data = await toWineData(refined);
   const updated = await prisma.wine.update({
     data: {
       ...data,
-      guideScore: data.guideScore ?? existing.guideScore,
       imageSource: existing.imageSource,
       imageUrl: existing.imageUrl,
     },
