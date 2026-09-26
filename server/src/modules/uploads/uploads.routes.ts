@@ -14,6 +14,8 @@ uploadsRouter.get(
       throw HttpError.notFound("Image not found");
     });
     res.setHeader("Content-Type", image.contentType);
+    // helmet defaults to same-origin; the web app loads photos cross-origin.
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.setHeader(
       "Cache-Control",
       `public, max-age=${ONE_YEAR_SECONDS}, immutable`

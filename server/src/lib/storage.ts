@@ -1,45 +1,50 @@
 import { randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { mkdir, rename, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { Readable } from "node:stream";
-import {
-  CreateBucketCommand,
-  GetObjectCommand,
-  HeadBucketCommand,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
 import { env } from "../config/env.js";
+import { HttpError } from "./http-error.js";
 import type { DecodedImage } from "./image-payload.js";
+import { uploadPath } from "./upload-urls.js";
 
-const s3 = new S3Client({
-  credentials: {
-    accessKeyId: env.MINIO_ACCESS_KEY,
-    secretAccessKey: env.MINIO_SECRET_KEY,
-  },
-  endpoint: env.MINIO_ENDPOINT,
-  forcePathStyle: true,
-  region: "us-east-1",
-});
+const CONTENT_TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+};
 
-export async function ensureBucketExists(): Promise<void> {
-  try {
-    await s3.send(new HeadBucketCommand({ Bucket: env.MINIO_BUCKET }));
-  } catch {
-    await s3.send(new CreateBucketCommand({ Bucket: env.MINIO_BUCKET }));
+// Keys are always `<uuid><ext>` as minted by uploadImage. Anything else (e.g.
+// "../") is rejected before it ever reaches the filesystem.
+const KEY_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
+
+function uploadsDir(): string {
+  return path.resolve(env.UPLOADS_DIR);
+}
+
+function pathForKey(key: string): string {
+  if (!KEY_PATTERN.test(key)) {
+    throw HttpError.notFound("Image not found");
   }
+  return path.join(uploadsDir(), key);
+}
+
+export async function ensureUploadsDirExists(): Promise<void> {
+  await mkdir(uploadsDir(), { recursive: true });
 }
 
 export async function uploadImage(
   file: Pick<DecodedImage, "buffer" | "extension" | "mimetype">
 ): Promise<string> {
   const key = `${randomUUID()}${file.extension}`;
-  await s3.send(
-    new PutObjectCommand({
-      Body: file.buffer,
-      Bucket: env.MINIO_BUCKET,
-      ContentType: file.mimetype,
-      Key: key,
-    })
-  );
+  const target = pathForKey(key);
+  // Write-then-rename so a crash mid-write never leaves a truncated image
+  // behind under a key that's already referenced from the database.
+  const temporary = `${target}.tmp`;
+  await ensureUploadsDirExists();
+  await writeFile(temporary, file.buffer);
+  await rename(temporary, target);
   return key;
 }
 
@@ -49,15 +54,15 @@ export interface StoredImage {
 }
 
 export async function getImage(key: string): Promise<StoredImage> {
-  const object = await s3.send(
-    new GetObjectCommand({ Bucket: env.MINIO_BUCKET, Key: key })
-  );
+  const filePath = pathForKey(key);
+  await stat(filePath);
   return {
-    body: object.Body as Readable,
-    contentType: object.ContentType ?? "application/octet-stream",
+    body: createReadStream(filePath),
+    contentType: CONTENT_TYPES[path.extname(key)] ?? "application/octet-stream",
   };
 }
 
+/** Where a stored image is served, as saved in the database — see upload-urls.ts. */
 export function publicUrlForImage(key: string): string {
-  return new URL(`/uploads/${key}`, env.PUBLIC_URL).toString();
+  return uploadPath(key);
 }

@@ -44,4 +44,12 @@ export class HttpError extends Error {
   static conflict(message: string): HttpError {
     return new HttpError(409, message);
   }
+
+  static badGateway(message: string): HttpError {
+    return new HttpError(502, message);
+  }
+
+  static serviceUnavailableWithCode(code: string, message: string): HttpError {
+    return new HttpError(503, message, undefined, { code });
+  }
 }

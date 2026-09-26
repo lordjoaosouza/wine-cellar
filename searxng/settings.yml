@@ -1,0 +1,22 @@
+# SearXNG for the Wine Cellar API: only the API talks to it (never exposed),
+# so the JSON output is enabled and the bot limiter is off.
+# Defaults: https://github.com/searxng/searxng/blob/master/searx/settings.yml
+use_default_settings: true
+
+general:
+  instance_name: wine-cellar-search
+
+search:
+  formats:
+    - html
+    - json
+
+server:
+  # Overridden by the SEARXNG_SECRET environment variable.
+  secret_key: change-me
+  limiter: false
+  image_proxy: false
+  public_instance: false
+
+ui:
+  static_use_hash: true

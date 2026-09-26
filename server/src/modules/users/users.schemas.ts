@@ -5,7 +5,6 @@ export const tuyaRegionSchema = z.enum(["US", "EU", "CN", "IN"]);
 export const updateProfileSchema = z.object({
   avatarUrl: z.string().url().nullable().optional(),
   name: z.string().trim().min(1).max(120).nullable().optional(),
-  openaiApiKey: z.string().trim().min(1).nullable().optional(),
   targetHumidityPct: z.number().min(50).max(80).optional(),
   targetTemperatureC: z.number().min(4).max(20).optional(),
 });
@@ -14,7 +13,6 @@ export const profileResponseSchema = z.object({
   avatarUrl: z.string().nullable(),
   createdAt: z.string(),
   email: z.string().email(),
-  hasOpenaiApiKey: z.boolean(),
   id: z.string(),
   name: z.string().nullable(),
   targetHumidityPct: z.number(),

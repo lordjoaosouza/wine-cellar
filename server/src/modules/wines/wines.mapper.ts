@@ -1,29 +1,31 @@
 import type { Prisma, Wine } from "../../generated/prisma/client.js";
 import { stripLinks, wineNormalizedKey } from "./wine-normalize.js";
+import { agingNotesFor, servingNotesFor } from "./wine-notes.js";
 import {
-  agingNotesFor,
-  normalizeGuideScore,
-  servingNotesFor,
-} from "./wine-notes.js";
-import type { GptWineResult } from "./wine-research.js";
+  priceFromOffers,
+  type WineOffer,
+  wineOffersFromJson,
+} from "./wine-pricing.js";
+import type { ResearchedWine } from "./wine-research.js";
 import type { WineDto } from "./wines.schemas.js";
 
-export function gptResultToWineData(
-  result: GptWineResult
+export function researchedWineToData(
+  result: ResearchedWine,
+  offers: WineOffer[]
 ): Prisma.WineCreateInput {
   return {
     agingNotes: agingNotesFor(result.type, result.grapes),
     country: result.country,
     grapes: result.grapes,
-    guideScore: normalizeGuideScore(result.guideScore),
     name: result.name,
     normalizedKey: wineNormalizedKey(
       result.producer,
       result.name,
       result.vintage
     ),
+    offers,
     pairings: result.pairings,
-    price: result.price,
+    price: priceFromOffers(offers).price,
     producerProfile: result.producerProfile,
     region: result.region,
     regionProfile: result.regionProfile,
@@ -36,17 +38,19 @@ export function gptResultToWineData(
 }
 
 export function wineToDto(wine: Wine): WineDto {
+  const offers = wineOffersFromJson(wine.offers);
   return {
     agingNotes: wine.agingNotes,
     country: wine.country,
     grapes: wine.grapes,
-    guideScore: wine.guideScore,
     id: wine.id,
     imageSource: wine.imageSource,
     imageUrl: wine.imageUrl,
     name: wine.name,
+    offers,
     pairings: wine.pairings,
     price: wine.price,
+    priceMarket: priceFromOffers(offers).market,
     producerProfile: stripLinks(wine.producerProfile),
     region: wine.region,
     regionProfile: stripLinks(wine.regionProfile),

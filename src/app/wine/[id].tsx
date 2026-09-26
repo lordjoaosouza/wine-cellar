@@ -1,10 +1,9 @@
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { openBrowserAsync } from "expo-web-browser";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActionSheetIOS,
   Alert,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -42,16 +41,14 @@ import {
 import { getRating } from "@/services/wine-ratings";
 import {
   getWineDetails,
-  MissingApiKeyError,
+  ResearchUnavailableError,
   refreshWine,
   saveRecentView,
-  searchWineImageWithGpt,
-  uploadWineImage,
 } from "@/services/wine-search";
 import { isOnWishlist, toggleWishlist } from "@/services/wine-wishlist";
-import type { WineDetail, WineRating } from "@/types/wine";
+import type { WineDetail, WineOffer, WineRating } from "@/types/wine";
 import { haptics } from "@/utils/haptics";
-import { promptPickPhoto } from "@/utils/pick-photo";
+import { formatOfferAmount, storeDomain } from "@/utils/wine-format";
 
 function GrapeChip({ grape }: { grape: string }) {
   return (
@@ -121,16 +118,12 @@ function WineLabelStage({
   detail,
   compact,
   heroImageUrl,
-  imageWorking,
   onImageError,
-  onChangeImage,
 }: {
   detail: WineDetail;
   compact: boolean;
   heroImageUrl: string | null;
-  imageWorking: boolean;
   onImageError: () => void;
-  onChangeImage: () => void;
 }) {
   return (
     <View
@@ -154,30 +147,6 @@ function WineLabelStage({
       ) : (
         <WineIllustration fill type={detail.type} />
       )}
-      {detail.guideScore === null ? null : (
-        <View
-          accessibilityLabel={`Guide score ${detail.guideScore.toFixed(1)}`}
-          style={styles.guideBadge}
-        >
-          <Icon color={Palette.wine} name="starFilled" size={16} />
-          <Text style={styles.guideValue}>{detail.guideScore.toFixed(1)}</Text>
-        </View>
-      )}
-      <AnimatedPressable
-        accessibilityLabel="Change this wine's photo"
-        accessibilityRole="button"
-        disabled={imageWorking}
-        onPress={onChangeImage}
-        style={styles.changeImageButton}
-      >
-        <GlassSurface isInteractive style={styles.changeImageHit}>
-          <Icon
-            color={Palette.ink}
-            name={imageWorking ? "hourglass" : "camera"}
-            size={16}
-          />
-        </GlassSurface>
-      </AnimatedPressable>
     </View>
   );
 }
@@ -205,6 +174,11 @@ function WineHeroInfo({
         <View style={styles.priceBlock}>
           <Text style={styles.producerLabel}>PRICE</Text>
           <Text style={styles.producerName}>{detail.price}</Text>
+          {detail.priceMarket === "INTERNATIONAL" ? (
+            <Text style={styles.priceHint}>
+              From stores abroad, converted to reais
+            </Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -327,12 +301,10 @@ function WineHero({
   detail,
   compact,
   heroImageUrl,
-  imageWorking,
   cellarQuantity,
   savedToWishlist,
   rating,
   onImageError,
-  onChangeImage,
   onOpenCellar,
   onToggleWishlist,
   onOpenRating,
@@ -340,12 +312,10 @@ function WineHero({
   detail: WineDetail;
   compact: boolean;
   heroImageUrl: string | null;
-  imageWorking: boolean;
   cellarQuantity: number;
   savedToWishlist: boolean;
   rating: WineRating | null;
   onImageError: () => void;
-  onChangeImage: () => void;
   onOpenCellar: () => void;
   onToggleWishlist: () => void;
   onOpenRating: () => void;
@@ -356,8 +326,6 @@ function WineHero({
         compact={compact}
         detail={detail}
         heroImageUrl={heroImageUrl}
-        imageWorking={imageWorking}
-        onChangeImage={onChangeImage}
         onImageError={onImageError}
       />
       <View style={styles.heroContent}>
@@ -469,16 +437,77 @@ function PairingSection({ pairings }: { pairings: string[] }) {
   );
 }
 
+function OfferRow({ offer, last }: { offer: WineOffer; last: boolean }) {
+  const isForeign = offer.currency !== "BRL";
+  const amount = formatOfferAmount(offer.amount, offer.currency);
+  const openStore = useCallback(() => {
+    haptics.tap();
+    void openBrowserAsync(offer.url);
+  }, [offer.url]);
+
+  return (
+    <AnimatedPressable
+      accessibilityHint="Opens the store's page for this wine"
+      accessibilityLabel={`${offer.store}, ${amount}`}
+      accessibilityRole="link"
+      onPress={openStore}
+    >
+      <View style={[styles.serveRow, !last && styles.serveRowBorder]}>
+        <View style={styles.serveIcon}>
+          <Icon color={Palette.plum} name="store" size={18} />
+        </View>
+        <View style={styles.offerStore}>
+          <Text numberOfLines={1} style={styles.offerStoreName}>
+            {offer.store}
+          </Text>
+          <Text numberOfLines={1} style={styles.offerCountry}>
+            {[offer.country, storeDomain(offer.url)]
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
+        </View>
+        <View style={styles.offerPrice}>
+          <Text style={styles.offerAmount}>{amount}</Text>
+          {isForeign ? (
+            <Text style={styles.offerConverted}>
+              {`~${formatOfferAmount(offer.amountBrl, "BRL")}`}
+            </Text>
+          ) : null}
+        </View>
+        <Icon color={Palette.muted} name="externalLink" size={16} />
+      </View>
+    </AnimatedPressable>
+  );
+}
+
+function WhereToBuySection({ offers }: { offers: WineOffer[] }) {
+  if (offers.length === 0) {
+    return null;
+  }
+  return (
+    <View style={styles.section}>
+      <SectionHeader eyebrow="WHERE TO BUY" icon="store" title="In stores" />
+      <GlassSurface style={styles.serveCard}>
+        {offers.map((offer, index) => (
+          <OfferRow
+            key={offer.url}
+            last={index === offers.length - 1}
+            offer={offer}
+          />
+        ))}
+      </GlassSurface>
+    </View>
+  );
+}
+
 function WineDetailContent({
   detail,
   compact,
   imageFailed,
-  imageWorking,
   cellarQuantity,
   savedToWishlist,
   rating,
   onImageError,
-  onChangeImage,
   onOpenCellar,
   onToggleWishlist,
   onOpenRating,
@@ -486,12 +515,10 @@ function WineDetailContent({
   detail: WineDetail;
   compact: boolean;
   imageFailed: boolean;
-  imageWorking: boolean;
   cellarQuantity: number;
   savedToWishlist: boolean;
   rating: WineRating | null;
   onImageError: () => void;
-  onChangeImage: () => void;
   onOpenCellar: () => void;
   onToggleWishlist: () => void;
   onOpenRating: () => void;
@@ -505,8 +532,6 @@ function WineDetailContent({
         compact={compact}
         detail={detail}
         heroImageUrl={heroImageUrl}
-        imageWorking={imageWorking}
-        onChangeImage={onChangeImage}
         onImageError={onImageError}
         onOpenCellar={onOpenCellar}
         onOpenRating={onOpenRating}
@@ -522,6 +547,7 @@ function WineDetailContent({
         servingNotes={detail.servingNotes}
       />
       <PairingSection pairings={detail.pairings} />
+      <WhereToBuySection offers={detail.offers} />
     </>
   );
 }
@@ -542,7 +568,7 @@ export default function WineDetailScreen() {
   const [cellarOpen, setCellarOpen] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [imageWorking, setImageWorking] = useState(false);
+  const [refreshStage, setRefreshStage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -600,11 +626,11 @@ export default function WineDetailScreen() {
     haptics.tap();
     setRefreshing(true);
     try {
-      const updated = await refreshWine(detail);
+      const updated = await refreshWine(detail, setRefreshStage);
       if (!updated) {
         Alert.alert(
           "Couldn't refresh",
-          "The sommelier came back empty-handed — try again in a moment."
+          "Couldn't find this wine on the web again — try again in a moment."
         );
         return;
       }
@@ -614,12 +640,13 @@ export default function WineDetailScreen() {
     } catch (refreshError) {
       Alert.alert(
         "Couldn't refresh",
-        refreshError instanceof MissingApiKeyError
-          ? "Add your OpenAI API key in Profile to refresh a wine."
+        refreshError instanceof ResearchUnavailableError
+          ? "The AI model on your server isn't running. Start Ollama and try again."
           : "Check your connection and try again."
       );
     } finally {
       setRefreshing(false);
+      setRefreshStage(null);
     }
   }, [detail, refreshing]);
 
@@ -655,90 +682,6 @@ export default function WineDetailScreen() {
     setCellarQuantity(0);
     setCellarOpen(false);
   }, [detail]);
-
-  const handleUploadImage = useCallback(async () => {
-    if (!detail) {
-      return;
-    }
-    const result = await promptPickPhoto({
-      hasExisting: false,
-      title: "Label photo",
-    });
-    if (!result || "removed" in result) {
-      return;
-    }
-    setImageWorking(true);
-    try {
-      setDetail(await uploadWineImage(detail.id, result.uri));
-      setImageFailed(false);
-      haptics.success();
-    } catch {
-      Alert.alert("Couldn't upload", "Check your connection and try again.");
-    } finally {
-      setImageWorking(false);
-    }
-  }, [detail]);
-
-  const handleSearchImageOnline = useCallback(async () => {
-    if (!detail) {
-      return;
-    }
-    setImageWorking(true);
-    try {
-      const updated = await searchWineImageWithGpt(detail.id);
-      setDetail(updated);
-      setImageFailed(false);
-      if (updated.imageUrl === detail.imageUrl) {
-        Alert.alert(
-          "No photo found",
-          "Couldn't find a clean product photo for this wine online."
-        );
-      } else {
-        haptics.success();
-      }
-    } catch (searchError) {
-      Alert.alert(
-        "Couldn't search",
-        searchError instanceof MissingApiKeyError
-          ? "Add your OpenAI API key in Profile to search for photos."
-          : "Check your connection and try again."
-      );
-    } finally {
-      setImageWorking(false);
-    }
-  }, [detail]);
-
-  const handleChangeImage = useCallback(() => {
-    if (!detail) {
-      return;
-    }
-    const options = ["Upload a photo", "Search for a photo online", "Cancel"];
-    const handleChoice = (index: number) => {
-      if (index === 0) {
-        void handleUploadImage();
-      } else if (index === 1) {
-        void handleSearchImageOnline();
-      }
-    };
-
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          cancelButtonIndex: options.length - 1,
-          options,
-          title: "Change photo",
-        },
-        handleChoice
-      );
-      return;
-    }
-
-    Alert.alert("Change photo", undefined, [
-      { onPress: () => handleChoice(0), text: options[0] },
-      { onPress: () => handleChoice(1), text: options[1] },
-      { style: "cancel", text: "Cancel" },
-    ]);
-  }, [detail, handleUploadImage, handleSearchImageOnline]);
 
   const handleImageError = useCallback(() => setImageFailed(true), []);
   const handleRefreshPress = useCallback(() => {
@@ -784,6 +727,12 @@ export default function WineDetailScreen() {
               </GlassSurface>
             </AnimatedPressable>
 
+            {refreshing && refreshStage ? (
+              <Text numberOfLines={1} style={styles.refreshStage}>
+                {refreshStage}…
+              </Text>
+            ) : null}
+
             {detail ? (
               <AnimatedPressable
                 accessibilityLabel="Refresh this wine's details"
@@ -819,8 +768,6 @@ export default function WineDetailScreen() {
               compact={compact}
               detail={detail}
               imageFailed={imageFailed}
-              imageWorking={imageWorking}
-              onChangeImage={handleChangeImage}
               onImageError={handleImageError}
               onOpenCellar={openCellarModal}
               onOpenRating={openRatingModal}
@@ -881,18 +828,6 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   cellarButtonText: { color: Palette.white, fontSize: 14, fontWeight: "700" },
-  changeImageButton: {
-    bottom: 14,
-    position: "absolute",
-    right: 14,
-  },
-  changeImageHit: {
-    alignItems: "center",
-    borderRadius: 18,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
   chip: {
     alignItems: "center",
     backgroundColor: Palette.blush,
@@ -947,20 +882,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.8,
   },
-  guideBadge: {
-    alignItems: "center",
-    backgroundColor: Palette.white,
-    borderRadius: Radii.pill,
-    flexDirection: "row",
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-    position: "absolute",
-    right: 14,
-    top: 14,
-    ...Shadows.raised,
-  },
-  guideValue: { color: Palette.wine, fontSize: 15, fontWeight: "800" },
   halfAction: { flex: 1 },
   halfButton: {
     alignItems: "center",
@@ -985,7 +906,7 @@ const styles = StyleSheet.create({
   heroCompact: { flexDirection: "column", gap: 30, minHeight: 0, padding: 20 },
   heroContent: { alignItems: "stretch", flex: 1, justifyContent: "center" },
   heroGrapes: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
-  labelImage: { height: "88%", width: "88%" },
+  labelImage: { height: "100%", width: "100%" },
   labelImageFrame: {
     alignItems: "center",
     backgroundColor: Palette.white,
@@ -1024,6 +945,12 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     fontSize: 13,
   },
+  offerAmount: { color: Palette.ink, fontSize: 14, fontWeight: "700" },
+  offerConverted: { color: Palette.muted, fontSize: 11, marginTop: 2 },
+  offerCountry: { color: Palette.muted, fontSize: 12, marginTop: 2 },
+  offerPrice: { alignItems: "flex-end" },
+  offerStore: { flex: 1 },
+  offerStoreName: { color: Palette.ink, fontSize: 14, fontWeight: "600" },
   page: { maxWidth: 1100, paddingHorizontal: 24, width: "100%" },
   pairingBullet: {
     backgroundColor: Palette.plum,
@@ -1048,6 +975,7 @@ const styles = StyleSheet.create({
   },
   pairingList: { gap: 10, marginTop: 15 },
   priceBlock: { marginTop: 28 },
+  priceHint: { color: Palette.muted, fontSize: 11, marginTop: 2 },
   producerBlock: { marginTop: 28 },
   producerBlockSpaced: { marginTop: 14 },
   producerLabel: {
@@ -1061,6 +989,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     marginTop: 4,
+  },
+  refreshStage: {
+    color: Palette.muted,
+    flex: 1,
+    fontSize: 12,
+    marginHorizontal: 12,
+    textAlign: "right",
   },
   scrollContent: { alignItems: "center", paddingBottom: 68 },
   scrollView: { backgroundColor: "transparent", flex: 1 },

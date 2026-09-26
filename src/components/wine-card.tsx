@@ -4,7 +4,6 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { GlassSurface } from "@/components/glass-surface";
-import { Icon } from "@/components/icon";
 import { WineIllustration } from "@/components/wine-illustration";
 import { Fonts, Palette, Shadows } from "@/constants/theme";
 import type { WineRecentView, WineSearchResult } from "@/types/wine";
@@ -70,14 +69,6 @@ export function WineCard({
           <Text numberOfLines={1} style={styles.wineProducer}>
             {wineOrigin(wine)}
           </Text>
-          {wine.guideScore === null ? null : (
-            <View style={styles.ratingRow}>
-              <Icon color={Palette.plum} name="starFilled" size={13} />
-              <Text style={styles.ratingText}>
-                {wine.guideScore.toFixed(1)}
-              </Text>
-            </View>
-          )}
         </View>
       </GlassSurface>
     </AnimatedPressable>
@@ -97,13 +88,6 @@ const styles = StyleSheet.create({
   },
   pressCard: { width: 342 },
   pressFull: { width: "100%" },
-  ratingRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 3,
-    marginTop: 3,
-  },
-  ratingText: { color: Palette.plum, fontSize: 11, fontWeight: "700" },
   recentLabelImage: { height: "94%", width: "94%" },
   recentLabelStage: {
     alignItems: "center",

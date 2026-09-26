@@ -1,7 +1,6 @@
 export interface UserProfile {
   avatarUri: string | null;
   email: string;
-  hasOpenaiApiKey: boolean;
   id: string;
   name: string;
   targetHumidityPct: number;
@@ -11,7 +10,6 @@ export interface UserProfile {
 export const defaultUserProfile: UserProfile = {
   avatarUri: null,
   email: "",
-  hasOpenaiApiKey: false,
   id: "",
   name: "",
   targetHumidityPct: 70,

@@ -28,10 +28,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { ChromeCloseButton } from "@/components/chrome-close-button";
 import { Icon } from "@/components/icon";
-import { Palette, Radii } from "@/constants/theme";
+import { Palette, paragraphLeading, Radii } from "@/constants/theme";
 import {
   identifyWineFromLabel,
-  MissingApiKeyError,
+  ResearchUnavailableError,
 } from "@/services/wine-search";
 import type { HomeSearchPreset } from "@/utils/search-intent";
 
@@ -41,7 +41,7 @@ interface LabelScanViewProps {
   visible: boolean;
 }
 
-function IdentifyingOverlay() {
+function IdentifyingOverlay({ stage }: { stage: string | null }) {
   const pulse = useSharedValue(0);
 
   useEffect(() => {
@@ -67,7 +67,10 @@ function IdentifyingOverlay() {
       </Animated.View>
       <Text style={styles.identifyingTitle}>Identifying label…</Text>
       <Text style={styles.identifyingBody}>
-        Reading the label and researching the wine.
+        {stage ? `${stage}…` : "Reading the label and researching the wine."}
+      </Text>
+      <Text style={styles.identifyingBody}>
+        This runs on your server's AI and can take a minute or two.
       </Text>
     </View>
   );
@@ -112,6 +115,7 @@ export function LabelScanView({
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [identifying, setIdentifying] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -141,7 +145,8 @@ export function LabelScanView({
       setCapturedUri(photo.uri ?? `data:image/jpeg;base64,${photo.base64}`);
       setIdentifying(true);
       const response = await identifyWineFromLabel(
-        `data:image/jpeg;base64,${photo.base64}`
+        `data:image/jpeg;base64,${photo.base64}`,
+        setStage
       );
       onIdentified({ label: "Scanned label", results: response.results });
       onClose();
@@ -149,12 +154,13 @@ export function LabelScanView({
       console.error("label scan failed", error);
       Alert.alert(
         "Couldn't scan that label",
-        error instanceof MissingApiKeyError
-          ? "Add your OpenAI API key in Profile to scan labels."
+        error instanceof ResearchUnavailableError
+          ? "The AI model on your server isn't running. Start Ollama and try again."
           : "Something went wrong reading the photo. Try again with better lighting."
       );
     } finally {
       setIdentifying(false);
+      setStage(null);
       setCapturedUri(null);
     }
   }, [identifying, onIdentified, onClose]);
@@ -205,7 +211,7 @@ export function LabelScanView({
         </View>
       </View>
 
-      {identifying ? <IdentifyingOverlay /> : null}
+      {identifying ? <IdentifyingOverlay stage={stage} /> : null}
 
       <View
         pointerEvents="box-none"
@@ -325,7 +331,8 @@ const styles = StyleSheet.create({
   identifyingBody: {
     color: "rgba(255,255,255,0.72)",
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: paragraphLeading(20),
+    paddingHorizontal: 32,
     textAlign: "center",
   },
   identifyingOverlay: {

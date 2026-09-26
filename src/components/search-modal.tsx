@@ -27,8 +27,14 @@ import { Icon } from "@/components/icon";
 import { LabelScanModal } from "@/components/label-scan-modal";
 import { ModalShell } from "@/components/modal-shell";
 import { WineCard } from "@/components/wine-card";
-import { Fonts, Palette, Radii, Shadows } from "@/constants/theme";
-import { MissingApiKeyError, searchWines } from "@/services/wine-search";
+import {
+  Fonts,
+  Palette,
+  paragraphLeading,
+  Radii,
+  Shadows,
+} from "@/constants/theme";
+import { ResearchUnavailableError, searchWines } from "@/services/wine-search";
 import type { WineSearchResult } from "@/types/wine";
 import {
   setHomeSearchOpen,
@@ -39,10 +45,8 @@ import {
 const MIN_QUERY_LENGTH = 3;
 
 const SEARCH_PHASES = [
+  "Checking your cellar's catalog…",
   "Asking the sommelier…",
-  "Checking wine retailers…",
-  "Cross-referencing labels…",
-  "Putting together the notes…",
 ];
 const PHASE_INTERVAL_MS = 1800;
 
@@ -78,7 +82,7 @@ function SkeletonCard({ delay }: { delay: number }) {
   );
 }
 
-function SearchingState() {
+function SearchingState({ stage }: { stage: string | null }) {
   const [phaseIndex, setPhaseIndex] = useState(0);
   const iconPulse = useSharedValue(0);
 
@@ -112,7 +116,15 @@ function SearchingState() {
           <Icon color={Palette.wine} name="wineGlass" size={32} />
         </Animated.View>
         <Text style={styles.stateTitle}>Searching…</Text>
-        <Text style={styles.stateBody}>{SEARCH_PHASES[phaseIndex]}</Text>
+        <Text style={styles.stateBody}>
+          {stage ? `${stage}…` : SEARCH_PHASES[phaseIndex]}
+        </Text>
+        {stage ? (
+          <Text style={styles.stateHint}>
+            New wines are researched on the web by your server's AI — this can
+            take a minute or two per wine.
+          </Text>
+        ) : null}
       </View>
       <View style={styles.skeletonList}>
         <SkeletonCard delay={0} />
@@ -148,6 +160,7 @@ function SearchModal({
   const [results, setResults] = useState<WineSearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
 
@@ -193,9 +206,14 @@ function SearchModal({
     requestIdRef.current += 1;
     const requestId = requestIdRef.current;
     setLoading(true);
+    setStage(null);
     setFeedback(null);
     try {
-      const response = await searchWines(trimmed);
+      const response = await searchWines(trimmed, (next) => {
+        if (requestIdRef.current === requestId) {
+          setStage(next);
+        }
+      });
       if (requestIdRef.current !== requestId) {
         return;
       }
@@ -208,8 +226,8 @@ function SearchModal({
       setResults([]);
       setHasSearched(true);
       setFeedback(
-        error instanceof MissingApiKeyError
-          ? "Add your OpenAI API key in Profile to search."
+        error instanceof ResearchUnavailableError
+          ? "The AI model on your server isn't running. Start Ollama and try again."
           : "Couldn't reach the sommelier — check your connection and try again."
       );
     } finally {
@@ -340,7 +358,7 @@ function SearchModal({
           >
             {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
 
-            {loading ? <SearchingState /> : null}
+            {loading ? <SearchingState stage={stage} /> : null}
 
             {!loading && hasSearched && results.length > 0 ? (
               <View style={styles.list}>
@@ -518,6 +536,14 @@ const styles = StyleSheet.create({
     color: Palette.muted,
     fontSize: 14,
     lineHeight: 21,
+    maxWidth: 280,
+    textAlign: "center",
+  },
+  stateHint: {
+    color: Palette.muted,
+    fontSize: 12,
+    lineHeight: paragraphLeading(18),
+    marginTop: 10,
     maxWidth: 280,
     textAlign: "center",
   },

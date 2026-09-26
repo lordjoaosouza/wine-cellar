@@ -14,22 +14,14 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+  searxng:
+    # Metasearch for wine research; only the API talks to it (no ports published).
+    image: searxng/searxng:2026.9.25-12f8b6515
     restart: unless-stopped
-    command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wine_cellar}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wine_cellar_minio}
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-change-me-in-root-env}
     volumes:
-      - minio-data:/data
-    ports:
-      - "9001:9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
 
   api:
     build:
@@ -39,19 +31,25 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      searxng:
+        condition: service_started
     env_file:
       - server/.env
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-wine_cellar}:${POSTGRES_PASSWORD:-wine_cellar}@postgres:5432/${POSTGRES_DB:-wine_cellar}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-wine_cellar}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-wine_cellar_minio}
+      UPLOADS_DIR: /data/uploads
+      SEARXNG_URL: http://searxng:8080
+      # Ollama runs on the host (it needs the GPU, which containers on macOS can't use).
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      # Makes host.docker.internal resolve on Linux too (Docker Desktop has it built in).
+      - host.docker.internal:host-gateway
+    volumes:
+      - uploads:/data/uploads
     ports:
       - "3000:3000"
 
 volumes:
   pgdata:
-  minio-data:
+  uploads:

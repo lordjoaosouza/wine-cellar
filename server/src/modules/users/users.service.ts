@@ -11,7 +11,6 @@ export interface ProfileDto {
   avatarUrl: string | null;
   createdAt: string;
   email: string;
-  hasOpenaiApiKey: boolean;
   id: string;
   name: string | null;
   targetHumidityPct: number;
@@ -30,7 +29,6 @@ function toProfileDto(user: User): ProfileDto {
     avatarUrl: user.avatarUrl,
     createdAt: user.createdAt.toISOString(),
     email: user.email,
-    hasOpenaiApiKey: Boolean(user.openaiApiKeyEncrypted),
     id: user.id,
     name: user.name,
     targetHumidityPct: user.targetHumidityPct,
@@ -60,12 +58,6 @@ export async function updateProfile(
     data: {
       ...(input.name !== undefined && { name: input.name }),
       ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
-      ...(input.openaiApiKey !== undefined && {
-        openaiApiKeyEncrypted:
-          input.openaiApiKey === null
-            ? null
-            : encryptSecret(input.openaiApiKey),
-      }),
       ...(input.targetTemperatureC !== undefined && {
         targetTemperatureC: input.targetTemperatureC,
       }),
@@ -77,15 +69,6 @@ export async function updateProfile(
   });
 
   return toProfileDto(user);
-}
-
-export async function getDecryptedOpenaiApiKey(
-  userId: string
-): Promise<string | null> {
-  const user = await findUserOrThrow(userId);
-  return user.openaiApiKeyEncrypted
-    ? decryptSecret(user.openaiApiKeyEncrypted)
-    : null;
 }
 
 export async function getTuyaCredentials(

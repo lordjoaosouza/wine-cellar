@@ -7,7 +7,6 @@ const WHITESPACE_PATTERN = /\s+/;
 interface ProfileResponse {
   avatarUrl: string | null;
   email: string;
-  hasOpenaiApiKey: boolean;
   id: string;
   name: string | null;
   targetHumidityPct: number;
@@ -28,7 +27,6 @@ async function toProfile(response: ProfileResponse): Promise<UserProfile> {
   return {
     avatarUri: await avatarStore.get(),
     email: response.email,
-    hasOpenaiApiKey: response.hasOpenaiApiKey,
     id: response.id,
     name: response.name ?? "",
     targetHumidityPct: response.targetHumidityPct,
@@ -49,7 +47,6 @@ export async function updateProfile(
   patch: Partial<
     Pick<UserProfile, "name" | "targetTemperatureC" | "targetHumidityPct">
   > & {
-    openaiApiKey?: string | null;
     avatarUri?: string | null;
   }
 ): Promise<UserProfile> {
@@ -59,7 +56,6 @@ export async function updateProfile(
 
   const hasServerPatch =
     patch.name !== undefined ||
-    patch.openaiApiKey !== undefined ||
     patch.targetTemperatureC !== undefined ||
     patch.targetHumidityPct !== undefined;
 
@@ -73,7 +69,6 @@ export async function updateProfile(
 
   const response = await apiClient.patch<ProfileResponse>("/users/me", {
     name: patch.name,
-    openaiApiKey: patch.openaiApiKey,
     targetHumidityPct: patch.targetHumidityPct,
     targetTemperatureC: patch.targetTemperatureC,
   });

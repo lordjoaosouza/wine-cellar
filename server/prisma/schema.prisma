@@ -15,9 +15,8 @@ enum TuyaRegion {
 }
 
 enum WineImageSource {
-  GPT
+  WEB
   LABEL_SCAN
-  MANUAL
 }
 
 model User {
@@ -27,8 +26,6 @@ model User {
   avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  openaiApiKeyEncrypted String?
 
   tuyaClientId              String?
   tuyaClientSecretEncrypted String?
@@ -85,7 +82,8 @@ model Wine {
   country        String?
   grapes         String[]        @default([])
   price          String?
-  guideScore     Float?
+  /// Store listings the price was computed from — see wine-pricing.ts.
+  offers         Json            @default("[]")
   tastingNotes   String?
   pairings       String[]        @default([])
   imageUrl       String?
