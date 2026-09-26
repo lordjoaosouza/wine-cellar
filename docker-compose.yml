@@ -14,23 +14,6 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-wine_cellar}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-wine_cellar_minio}
-    volumes:
-      - minio-data:/data
-    ports:
-      - "9001:9001"
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   api:
     build:
       context: .
@@ -39,19 +22,17 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
-        condition: service_healthy
     env_file:
       - server/.env
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-wine_cellar}:${POSTGRES_PASSWORD:-wine_cellar}@postgres:5432/${POSTGRES_DB:-wine_cellar}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-wine_cellar}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-wine_cellar_minio}
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
     ports:
       - "3000:3000"
 
 volumes:
   pgdata:
-  minio-data:
+  uploads:

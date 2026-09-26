@@ -13,6 +13,10 @@ dist/
 # test / coverage
 coverage/
 
+# uploaded photos (local dev and tests)
+uploads/
+test-uploads/
+
 # prisma
 src/generated/
 

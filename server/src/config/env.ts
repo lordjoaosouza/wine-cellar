@@ -26,16 +26,14 @@ const envSchema = z.object({
     .string()
     .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
   JWT_REFRESH_TTL: z.string().default("30d"),
-  MINIO_ACCESS_KEY: z.string().min(1, "MINIO_ACCESS_KEY is required"),
-  MINIO_BUCKET: z.string().default("wine-cellar"),
-  MINIO_ENDPOINT: z.string().url().default("http://minio:9000"),
-  MINIO_SECRET_KEY: z.string().min(1, "MINIO_SECRET_KEY is required"),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
   PUBLIC_URL: z.string().url().default("http://localhost:3000"),
   RESEND_API_KEY: z.string().min(1, "RESEND_API_KEY is required"),
+  // Label and tasting photos live here; relative paths resolve from the cwd.
+  UPLOADS_DIR: z.string().default("uploads"),
 });
 
 export type Env = z.infer<typeof envSchema>;

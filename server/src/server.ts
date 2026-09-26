@@ -1,9 +1,9 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
-import { ensureBucketExists } from "./lib/storage.js";
+import { ensureUploadsDirExists } from "./lib/storage.js";
 
-await ensureBucketExists();
+await ensureUploadsDirExists();
 
 const app = createApp();
 
