@@ -1,12 +1,12 @@
 import { Image } from "expo-image";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import Animated from "react-native-reanimated";
 
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { GlassSurface } from "@/components/glass-surface";
 import { Icon } from "@/components/icon";
-import { Fonts, Palette, Radii } from "@/constants/theme";
+import { Fonts, Palette, paragraphLeading, Radii } from "@/constants/theme";
 import { useFocusScale } from "@/hooks/use-focus-scale";
 import {
   emptyRatingDraft,
@@ -18,6 +18,10 @@ import type { IntensityScore, WineRating } from "@/types/wine";
 import { confirmDelete } from "@/utils/confirm-delete";
 import { haptics } from "@/utils/haptics";
 import { promptPickPhoto } from "@/utils/pick-photo";
+import {
+  type RatingFormErrors,
+  validateRatingForm,
+} from "@/utils/rating-validation";
 
 const intensities: IntensityScore[] = [1, 2, 3, 4, 5];
 
@@ -189,40 +193,100 @@ function ScaleFieldRow({
   return <ScaleRow label={field.label} onChange={handleChange} value={value} />;
 }
 
+/** Called with the field's container so the parent can scroll it into view. */
+type FieldFocusHandler = (field: View | null) => void;
+
+function NoteField({
+  label,
+  placeholder,
+  value,
+  error,
+  onChangeText,
+  onFieldFocus,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  error: string | undefined;
+  onChangeText: (value: string) => void;
+  onFieldFocus?: FieldFocusHandler;
+}) {
+  const containerRef = useRef<View>(null);
+  const focus = useFocusScale();
+  const handleFocus = useCallback(() => {
+    focus.onFocus();
+    onFieldFocus?.(containerRef.current);
+  }, [focus, onFieldFocus]);
+
+  return (
+    <View collapsable={false} ref={containerRef}>
+      <Animated.View style={focus.animatedStyle}>
+        <GlassSurface style={[styles.noteCard, error && styles.cardInvalid]}>
+          <Text style={styles.fieldLabel}>{label}</Text>
+          <TextInput
+            multiline
+            onBlur={focus.onBlur}
+            onChangeText={onChangeText}
+            onFocus={handleFocus}
+            placeholder={placeholder}
+            placeholderTextColor={Palette.placeholderDark}
+            selectionColor={Palette.wine}
+            style={styles.noteInput}
+            value={value}
+          />
+          {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+        </GlassSurface>
+      </Animated.View>
+    </View>
+  );
+}
+
 export function WineRatingForm({
   wineId,
   rating,
   onSaved,
   onRemoved,
-  onLowerFieldFocus,
+  onFieldFocus,
   embedded = false,
 }: {
   wineId: string;
   rating: WineRating | null;
   onSaved: (rating: WineRating) => void;
   onRemoved?: () => void;
-  onLowerFieldFocus?: () => void;
+  /** Lets the screen scroll the focused field above the keyboard. */
+  onFieldFocus?: FieldFocusHandler;
   embedded?: boolean;
 }) {
   const [draft, setDraft] = useState<Draft>(
     rating ? ratingToDraft(rating) : emptyRatingDraft
   );
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<RatingFormErrors>({});
+  const [saving, setSaving] = useState(false);
 
   const scoreFocus = useFocusScale();
-  const visualFocus = useFocusScale();
-  const noseFocus = useFocusScale();
-  const palateFocus = useFocusScale();
-  const conclusionFocus = useFocusScale();
+  const scoreFieldRef = useRef<View>(null);
 
   useEffect(() => {
     setDraft(rating ? ratingToDraft(rating) : emptyRatingDraft);
     setError(null);
+    setFieldErrors({});
   }, [rating]);
 
   const update = useCallback(
     <K extends keyof Draft>(key: K, value: Draft[K]) => {
       setDraft((current) => ({ ...current, [key]: value }));
+      // Typing into a flagged field clears its message right away.
+      setFieldErrors((current) => {
+        if (!(key in current)) {
+          return current;
+        }
+        const { [key as keyof RatingFormErrors]: _cleared, ...rest } = current;
+        if (Object.keys(rest).length === 0) {
+          setError(null);
+        }
+        return rest;
+      });
     },
     []
   );
@@ -252,41 +316,49 @@ export function WineRatingForm({
     [update]
   );
 
-  const handlePalateFocus = useCallback(() => {
-    palateFocus.onFocus();
-    onLowerFieldFocus?.();
-  }, [palateFocus, onLowerFieldFocus]);
-
-  const handleConclusionFocus = useCallback(() => {
-    conclusionFocus.onFocus();
-    onLowerFieldFocus?.();
-  }, [conclusionFocus, onLowerFieldFocus]);
+  const handleScoreFocus = useCallback(() => {
+    scoreFocus.onFocus();
+    onFieldFocus?.(scoreFieldRef.current);
+  }, [scoreFocus, onFieldFocus]);
 
   const handleSave = useCallback(async () => {
-    const score = Number(draft.score.replace(",", "."));
-    if (!Number.isFinite(score) || score < 0 || score > 10) {
-      setError("Enter a final score between 0 and 10.");
+    if (saving) {
       return;
     }
-    let saved = await saveRating(wineId, {
-      balance: draft.balance,
-      complexity: draft.complexity,
-      conclusion: draft.conclusion.trim(),
-      emotion: draft.emotion,
-      intensity: draft.intensity,
-      nose: draft.nose.trim(),
-      palate: draft.palate.trim(),
-      persistence: draft.persistence,
-      score: Math.round(score * 10) / 10,
-      visual: draft.visual.trim(),
-    });
-    if (draft.photoUri && isLocalFileUri(draft.photoUri)) {
-      saved = await uploadRatingPhoto(wineId, draft.photoUri);
+    const { photoUri, ...fields } = draft;
+    const validation = validateRatingForm(fields);
+    if (!validation.success) {
+      setFieldErrors(validation.errors);
+      const missing = Object.keys(validation.errors).length;
+      setError(
+        missing === 1
+          ? "One field still needs your attention."
+          : `${missing} fields still need your attention.`
+      );
+      haptics.warning();
+      return;
     }
-    setError(null);
-    haptics.success();
-    onSaved(saved);
-  }, [draft, wineId, onSaved]);
+
+    setSaving(true);
+    try {
+      let saved = await saveRating(wineId, validation.values);
+      if (photoUri && isLocalFileUri(photoUri)) {
+        saved = await uploadRatingPhoto(wineId, photoUri);
+      }
+      setError(null);
+      setFieldErrors({});
+      haptics.success();
+      onSaved(saved);
+    } catch (saveError) {
+      console.error("saving tasting failed", saveError);
+      setError(
+        "Couldn't save your tasting. Check your connection and try again."
+      );
+      haptics.warning();
+    } finally {
+      setSaving(false);
+    }
+  }, [draft, saving, wineId, onSaved]);
 
   const handleRemove = useCallback(async () => {
     const confirmed = await confirmDelete({
@@ -311,6 +383,11 @@ export function WineRatingForm({
     void handleRemove();
   }, [handleRemove]);
 
+  let saveLabel = rating ? "Update tasting" : "Save tasting";
+  if (saving) {
+    saveLabel = "Saving…";
+  }
+
   return (
     <View style={embedded ? styles.embedded : styles.section}>
       {embedded ? null : (
@@ -328,24 +405,32 @@ export function WineRatingForm({
 
       <TastingPhotoField onChange={updatePhotoUri} photoUri={draft.photoUri} />
 
-      <Animated.View style={scoreFocus.animatedStyle}>
-        <GlassSurface style={styles.scoreCard}>
-          <Text style={styles.fieldLabel}>FINAL SCORE</Text>
-          <TextInput
-            accessibilityLabel="Final score from 0 to 10"
-            keyboardType="decimal-pad"
-            onBlur={scoreFocus.onBlur}
-            onChangeText={updateScore}
-            onFocus={scoreFocus.onFocus}
-            placeholder="8.5"
-            placeholderTextColor={Palette.placeholderDark}
-            selectionColor={Palette.wine}
-            style={styles.scoreInput}
-            value={draft.score}
-          />
-          <Text style={styles.fieldHint}>From 0 to 10</Text>
-        </GlassSurface>
-      </Animated.View>
+      <View collapsable={false} ref={scoreFieldRef}>
+        <Animated.View style={scoreFocus.animatedStyle}>
+          <GlassSurface
+            style={[styles.scoreCard, fieldErrors.score && styles.cardInvalid]}
+          >
+            <Text style={styles.fieldLabel}>FINAL SCORE</Text>
+            <TextInput
+              accessibilityLabel="Final score from 0 to 10"
+              keyboardType="decimal-pad"
+              onBlur={scoreFocus.onBlur}
+              onChangeText={updateScore}
+              onFocus={handleScoreFocus}
+              placeholder="8.5"
+              placeholderTextColor={Palette.placeholderDark}
+              selectionColor={Palette.wine}
+              style={styles.scoreInput}
+              value={draft.score}
+            />
+            <Text
+              style={fieldErrors.score ? styles.fieldError : styles.fieldHint}
+            >
+              {fieldErrors.score ?? "From 0 to 10"}
+            </Text>
+          </GlassSurface>
+        </Animated.View>
+      </View>
 
       <View style={styles.scales}>
         {scaleFields.map((field) => (
@@ -359,83 +444,54 @@ export function WineRatingForm({
       </View>
 
       <Text style={styles.groupLabel}>SENSORY NOTES</Text>
-      <Animated.View style={visualFocus.animatedStyle}>
-        <GlassSurface style={styles.noteCard}>
-          <Text style={styles.fieldLabel}>VISUAL</Text>
-          <TextInput
-            multiline
-            onBlur={visualFocus.onBlur}
-            onChangeText={updateVisual}
-            onFocus={visualFocus.onFocus}
-            placeholder="Color, clarity, viscosity…"
-            placeholderTextColor={Palette.placeholderDark}
-            selectionColor={Palette.wine}
-            style={styles.noteInput}
-            value={draft.visual}
-          />
-        </GlassSurface>
-      </Animated.View>
-      <Animated.View style={noseFocus.animatedStyle}>
-        <GlassSurface style={styles.noteCard}>
-          <Text style={styles.fieldLabel}>NOSE</Text>
-          <TextInput
-            multiline
-            onBlur={noseFocus.onBlur}
-            onChangeText={updateNose}
-            onFocus={noseFocus.onFocus}
-            placeholder="Aromas, intensity, evolution…"
-            placeholderTextColor={Palette.placeholderDark}
-            selectionColor={Palette.wine}
-            style={styles.noteInput}
-            value={draft.nose}
-          />
-        </GlassSurface>
-      </Animated.View>
-      <Animated.View style={palateFocus.animatedStyle}>
-        <GlassSurface style={styles.noteCard}>
-          <Text style={styles.fieldLabel}>PALATE</Text>
-          <TextInput
-            multiline
-            onBlur={palateFocus.onBlur}
-            onChangeText={updatePalate}
-            onFocus={handlePalateFocus}
-            placeholder="Body, acidity, tannin, flavor…"
-            placeholderTextColor={Palette.placeholderDark}
-            selectionColor={Palette.wine}
-            style={styles.noteInput}
-            value={draft.palate}
-          />
-        </GlassSurface>
-      </Animated.View>
-      <Animated.View style={conclusionFocus.animatedStyle}>
-        <GlassSurface style={styles.noteCard}>
-          <Text style={styles.fieldLabel}>CONCLUSION</Text>
-          <TextInput
-            multiline
-            onBlur={conclusionFocus.onBlur}
-            onChangeText={updateConclusion}
-            onFocus={handleConclusionFocus}
-            placeholder="Your overall impression of this bottle…"
-            placeholderTextColor={Palette.placeholderDark}
-            selectionColor={Palette.wine}
-            style={styles.noteInput}
-            value={draft.conclusion}
-          />
-        </GlassSurface>
-      </Animated.View>
+      <NoteField
+        error={fieldErrors.visual}
+        label="VISUAL"
+        onChangeText={updateVisual}
+        onFieldFocus={onFieldFocus}
+        placeholder="Color, clarity, viscosity…"
+        value={draft.visual}
+      />
+      <NoteField
+        error={fieldErrors.nose}
+        label="NOSE"
+        onChangeText={updateNose}
+        onFieldFocus={onFieldFocus}
+        placeholder="Aromas, intensity, evolution…"
+        value={draft.nose}
+      />
+      <NoteField
+        error={fieldErrors.palate}
+        label="PALATE"
+        onChangeText={updatePalate}
+        onFieldFocus={onFieldFocus}
+        placeholder="Body, acidity, tannin, flavor…"
+        value={draft.palate}
+      />
+      <NoteField
+        error={fieldErrors.conclusion}
+        label="CONCLUSION"
+        onChangeText={updateConclusion}
+        onFieldFocus={onFieldFocus}
+        placeholder="Your overall impression of this bottle…"
+        value={draft.conclusion}
+      />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <AnimatedPressable accessibilityRole="button" onPress={handleSavePress}>
+      <AnimatedPressable
+        accessibilityRole="button"
+        accessibilityState={{ busy: saving, disabled: saving }}
+        disabled={saving}
+        onPress={handleSavePress}
+      >
         <GlassSurface
           isInteractive
           style={styles.saveButton}
           tintColor={Palette.wine}
         >
           <Icon color={Palette.white} name="check" size={18} />
-          <Text style={styles.saveButtonText}>
-            {rating ? "Update tasting" : "Save tasting"}
-          </Text>
+          <Text style={styles.saveButtonText}>{saveLabel}</Text>
         </GlassSurface>
       </AnimatedPressable>
 
@@ -454,6 +510,7 @@ export function WineRatingForm({
 }
 
 const styles = StyleSheet.create({
+  cardInvalid: { borderColor: Palette.wine, borderWidth: 1.5 },
   dot: {
     alignItems: "center",
     backgroundColor: Palette.surface,
@@ -467,6 +524,12 @@ const styles = StyleSheet.create({
   dotTextSelected: { color: Palette.white },
   embedded: { paddingBottom: 12 },
   error: { color: Palette.wine, fontSize: 13, marginTop: 4 },
+  fieldError: {
+    color: Palette.wine,
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: paragraphLeading(17),
+  },
   fieldHint: { color: Palette.placeholderDark, fontSize: 12 },
   fieldLabel: {
     color: Palette.muted,

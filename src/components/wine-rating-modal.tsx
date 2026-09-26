@@ -21,6 +21,10 @@ const tastedDateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
+// Breathing room between the top of the scroll area and the focused field.
+const FOCUSED_FIELD_TOP_MARGIN = 12;
+const KEYBOARD_LAYOUT_DELAY_MS = 120;
+
 function formatTastedDate(savedAt: string) {
   const date = new Date(savedAt);
   return Number.isNaN(date.getTime()) ? "" : tastedDateFormatter.format(date);
@@ -46,6 +50,8 @@ export function WineRatingModal({
   onRemoved?: () => void;
 }) {
   const scrollRef = useRef<ScrollView>(null);
+  const contentRef = useRef<View>(null);
+  const focusedFieldRef = useRef<View | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
 
   const close = useCallback(() => {
@@ -90,24 +96,52 @@ export function WineRatingModal({
     onClose();
   }, [onRemoved, onClose]);
 
-  const scrollFieldIntoView = useCallback(() => {
-    if (Platform.OS === "web") {
-      requestAnimationFrame(() => {
-        const field = document.activeElement as HTMLElement | null;
-        field?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-      });
+  /** Scrolls so the field sits at the top of the visible area. */
+  const scrollFieldToTop = useCallback((field: View | null) => {
+    const content = contentRef.current;
+    if (!(field && content)) {
       return;
     }
-
-    requestAnimationFrame(() => {
-      setTimeout(
-        () => {
-          scrollRef.current?.scrollToEnd({ animated: true });
-        },
-        Platform.OS === "ios" ? 280 : 80
-      );
+    field.measureLayout(content, (_x, y) => {
+      scrollRef.current?.scrollTo({
+        animated: true,
+        y: Math.max(0, y - FOCUSED_FIELD_TOP_MARGIN),
+      });
     });
   }, []);
+
+  const handleFieldFocus = useCallback(
+    (field: View | null) => {
+      focusedFieldRef.current = field;
+      if (Platform.OS === "web") {
+        requestAnimationFrame(() => {
+          const input = document.activeElement as HTMLElement | null;
+          input?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        });
+        return;
+      }
+      // Moving between fields with the keyboard already up: scroll now.
+      // Otherwise the keyboard effect below scrolls once it has opened.
+      if (keyboardInset > 0) {
+        requestAnimationFrame(() => scrollFieldToTop(field));
+      }
+    },
+    [keyboardInset, scrollFieldToTop]
+  );
+
+  // The keyboard just opened (and the content grew by its height, so even the
+  // last field can reach the top): bring the field being typed in up there.
+  // Waits a beat so the extra bottom padding is laid out before scrolling.
+  useEffect(() => {
+    if (keyboardInset === 0) {
+      return;
+    }
+    const timer = setTimeout(
+      () => scrollFieldToTop(focusedFieldRef.current),
+      KEYBOARD_LAYOUT_DELAY_MS
+    );
+    return () => clearTimeout(timer);
+  }, [keyboardInset, scrollFieldToTop]);
 
   const panel = (
     <SafeAreaProvider>
@@ -150,17 +184,19 @@ export function WineRatingModal({
             ref={scrollRef}
             style={styles.scroll}
           >
-            {visible ? (
-              <WineRatingForm
-                embedded
-                key={`${wineId}-${rating?.savedAt ?? "new"}`}
-                onLowerFieldFocus={scrollFieldIntoView}
-                onRemoved={handleRemoved}
-                onSaved={handleSaved}
-                rating={rating}
-                wineId={wineId}
-              />
-            ) : null}
+            <View collapsable={false} ref={contentRef}>
+              {visible ? (
+                <WineRatingForm
+                  embedded
+                  key={`${wineId}-${rating?.savedAt ?? "new"}`}
+                  onFieldFocus={handleFieldFocus}
+                  onRemoved={handleRemoved}
+                  onSaved={handleSaved}
+                  rating={rating}
+                  wineId={wineId}
+                />
+              ) : null}
+            </View>
           </ScrollView>
         </SafeAreaView>
       </View>
