@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -14,7 +13,7 @@ import {
   SwipeDeleteRow,
 } from "@/components/swipe-delete-row";
 import { useTabHeaderSlotHeight } from "@/components/tab-screen-header";
-import { WineIllustration } from "@/components/wine-illustration";
+import { WineThumbnail } from "@/components/wine-thumbnail";
 import {
   BottomTabInset,
   Fonts,
@@ -57,23 +56,7 @@ function WishlistRow({
           onPress={handlePress}
           style={styles.wineCardMain}
         >
-          {wine.imageUrl ? (
-            <View style={[styles.labelStage, styles.labelStageImage]}>
-              <Image
-                accessibilityLabel={`Label for ${wine.name}`}
-                contentFit="contain"
-                source={{ uri: wine.imageUrl }}
-                style={styles.labelImage}
-              />
-            </View>
-          ) : (
-            <View
-              accessible={false}
-              style={[styles.labelStage, styles.labelStagePlaceholder]}
-            >
-              <WineIllustration size={68} type={wine.type} />
-            </View>
-          )}
+          <WineThumbnail wine={wine} />
           <View style={styles.wineCardContent}>
             <Text numberOfLines={1} style={styles.wineName}>
               {wine.name}
@@ -243,17 +226,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   intro: { marginTop: 0 },
-  labelImage: { height: "94%", width: "94%" },
-  labelStage: {
-    alignItems: "center",
-    borderRadius: 13,
-    height: 102,
-    justifyContent: "center",
-    minWidth: 74,
-    width: 74,
-  },
-  labelStageImage: { backgroundColor: Palette.white, ...Shadows.card },
-  labelStagePlaceholder: { backgroundColor: Palette.white, ...Shadows.card },
   list: { gap: 10, marginTop: 32 },
   page: { maxWidth: 980, paddingHorizontal: 24, paddingTop: 0, width: "100%" },
   primaryButton: {

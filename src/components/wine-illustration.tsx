@@ -1,5 +1,6 @@
 import { Image, type ImageSource } from "expo-image";
 
+import { FRAMED_IMAGE_SIZE } from "@/utils/wine-format";
 import { wineTypeSlug } from "@/utils/wine-illustration";
 
 const ILLUSTRATIONS: Record<string, ImageSource> = {
@@ -18,15 +19,8 @@ const ILLUSTRATIONS: Record<string, ImageSource> = {
   "sweet-white": require("../assets/wine-illustrations/sweet-white.png"),
 };
 
-export function WineIllustration({
-  type,
-  size = 74,
-  fill = false,
-}: {
-  type: string | null;
-  size?: number;
-  fill?: boolean;
-}) {
+/** The illustration for the wine's style, at 96% of its frame. */
+export function WineIllustration({ type }: { type: string | null }) {
   const source = ILLUSTRATIONS[wineTypeSlug(type)] ?? ILLUSTRATIONS["dry-red"];
 
   return (
@@ -34,11 +28,7 @@ export function WineIllustration({
       accessibilityLabel={type ? `${type} illustration` : "Wine illustration"}
       contentFit="contain"
       source={source}
-      style={
-        fill
-          ? { height: "90%", width: "90%" }
-          : { height: size * 1.4, width: size }
-      }
+      style={{ height: FRAMED_IMAGE_SIZE, width: FRAMED_IMAGE_SIZE }}
     />
   );
 }

@@ -48,7 +48,12 @@ import {
 import { isOnWishlist, toggleWishlist } from "@/services/wine-wishlist";
 import type { WineDetail, WineOffer, WineRating } from "@/types/wine";
 import { haptics } from "@/utils/haptics";
-import { formatOfferAmount, storeDomain } from "@/utils/wine-format";
+import {
+  FRAMED_IMAGE_SIZE,
+  formatOfferAmount,
+  photoFillsFrame,
+  storeDomain,
+} from "@/utils/wine-format";
 
 function GrapeChip({ grape }: { grape: string }) {
   return (
@@ -125,6 +130,7 @@ function WineLabelStage({
   heroImageUrl: string | null;
   onImageError: () => void;
 }) {
+  const fillsFrame = photoFillsFrame(detail.imageSource);
   return (
     <View
       style={[
@@ -137,15 +143,15 @@ function WineLabelStage({
         <View style={styles.labelImageFrame}>
           <Image
             accessibilityLabel={`Label for ${detail.name}`}
-            contentFit="contain"
+            contentFit={fillsFrame ? "cover" : "contain"}
             onError={onImageError}
             source={{ uri: heroImageUrl }}
-            style={styles.labelImage}
+            style={fillsFrame ? styles.labelImageFilled : styles.labelImage}
             transition={250}
           />
         </View>
       ) : (
-        <WineIllustration fill type={detail.type} />
+        <WineIllustration type={detail.type} />
       )}
     </View>
   );
@@ -906,7 +912,9 @@ const styles = StyleSheet.create({
   heroCompact: { flexDirection: "column", gap: 30, minHeight: 0, padding: 20 },
   heroContent: { alignItems: "stretch", flex: 1, justifyContent: "center" },
   heroGrapes: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
-  labelImage: { height: "100%", width: "100%" },
+  labelImage: { height: FRAMED_IMAGE_SIZE, width: FRAMED_IMAGE_SIZE },
+  // Rounded on the image itself so the frame keeps its shadow on iOS.
+  labelImageFilled: { borderRadius: 24, height: "100%", width: "100%" },
   labelImageFrame: {
     alignItems: "center",
     backgroundColor: Palette.white,

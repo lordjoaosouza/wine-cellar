@@ -14,7 +14,7 @@ import {
   SwipeDeleteRow,
 } from "@/components/swipe-delete-row";
 import { useTabHeaderSlotHeight } from "@/components/tab-screen-header";
-import { WineIllustration } from "@/components/wine-illustration";
+import { WineThumbnail } from "@/components/wine-thumbnail";
 import {
   BottomTabInset,
   Fonts,
@@ -28,9 +28,13 @@ import type { WineRating } from "@/types/wine";
 import { requestHomeSearch } from "@/utils/search-intent";
 import { wineOrigin, wineVintageDetails } from "@/utils/wine-format";
 
+/** Your own tasting photo first; otherwise the wine's photo or illustration. */
 function RatingThumbnail({ rating }: { rating: WineRating }) {
-  if (rating.photoUrl) {
-    return (
+  if (!rating.photoUrl) {
+    return <WineThumbnail wine={rating} />;
+  }
+  return (
+    <View style={[styles.labelStage, styles.labelStageImage]}>
       <View style={styles.photoFrame}>
         <Image
           accessibilityLabel={`Your tasting photo for ${rating.name}`}
@@ -42,19 +46,8 @@ function RatingThumbnail({ rating }: { rating: WineRating }) {
           <Icon color={Palette.white} name="camera" size={10} />
         </View>
       </View>
-    );
-  }
-  if (rating.imageUrl) {
-    return (
-      <Image
-        accessibilityLabel={`Label for ${rating.name}`}
-        contentFit="contain"
-        source={{ uri: rating.imageUrl }}
-        style={styles.labelImage}
-      />
-    );
-  }
-  return <WineIllustration size={68} type={rating.type} />;
+    </View>
+  );
 }
 
 function RatedRow({
@@ -86,17 +79,7 @@ function RatedRow({
           onPress={handlePress}
           style={styles.wineCardMain}
         >
-          <View
-            accessible={false}
-            style={[
-              styles.labelStage,
-              rating.photoUrl || rating.imageUrl
-                ? styles.labelStageImage
-                : styles.labelStagePlaceholder,
-            ]}
-          >
-            <RatingThumbnail rating={rating} />
-          </View>
+          <RatingThumbnail rating={rating} />
           <View style={styles.wineCardContent}>
             <Text numberOfLines={1} style={styles.wineName}>
               {rating.name}
@@ -270,7 +253,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   intro: { marginTop: 0 },
-  labelImage: { height: "94%", width: "94%" },
   labelStage: {
     alignItems: "center",
     borderRadius: 13,
@@ -280,7 +262,6 @@ const styles = StyleSheet.create({
     width: 74,
   },
   labelStageImage: { backgroundColor: Palette.white, ...Shadows.card },
-  labelStagePlaceholder: { backgroundColor: Palette.white, ...Shadows.card },
   list: { gap: 10, marginTop: 32 },
   page: { maxWidth: 980, paddingHorizontal: 24, paddingTop: 0, width: "100%" },
   photoBadge: {

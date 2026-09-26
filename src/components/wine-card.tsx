@@ -1,40 +1,21 @@
-import { Image } from "expo-image";
-import { useCallback, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { GlassSurface } from "@/components/glass-surface";
-import { WineIllustration } from "@/components/wine-illustration";
-import { Fonts, Palette, Shadows } from "@/constants/theme";
+import { WineThumbnail } from "@/components/wine-thumbnail";
+import { Fonts, Palette } from "@/constants/theme";
 import type { WineRecentView, WineSearchResult } from "@/types/wine";
 import { wineOrigin, wineVintageDetails } from "@/utils/wine-format";
-
-function BottlePlaceholder({ type }: { type: string | null }) {
-  return (
-    <View accessible={false} style={styles.bottleStage}>
-      <WineIllustration size={68} type={type} />
-    </View>
-  );
-}
 
 export function WineCard({
   wine,
   fullWidth = false,
   onPress,
-  imageUrl: imageUrlOverride,
 }: {
   wine: WineSearchResult | WineRecentView;
   fullWidth?: boolean;
   onPress: () => void;
-  imageUrl?: string | null;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const imageUrl = imageFailed
-    ? null
-    : ((imageUrlOverride === undefined ? wine.imageUrl : imageUrlOverride) ??
-      null);
-  const handleImageError = useCallback(() => setImageFailed(true), []);
-
   return (
     <AnimatedPressable
       accessibilityHint="Opens this wine's details"
@@ -46,19 +27,7 @@ export function WineCard({
         isInteractive
         style={[styles.wineCard, fullWidth && styles.wineCardFull]}
       >
-        {imageUrl ? (
-          <View style={styles.recentLabelStage}>
-            <Image
-              accessibilityLabel={`Label for ${wine.name}`}
-              contentFit="contain"
-              onError={handleImageError}
-              source={{ uri: imageUrl }}
-              style={styles.recentLabelImage}
-            />
-          </View>
-        ) : (
-          <BottlePlaceholder type={wine.type} />
-        )}
+        <WineThumbnail wine={wine} />
         <View style={styles.wineCardContent}>
           <Text numberOfLines={1} style={styles.wineName}>
             {wine.name}
@@ -76,29 +45,8 @@ export function WineCard({
 }
 
 const styles = StyleSheet.create({
-  bottleStage: {
-    alignItems: "center",
-    backgroundColor: Palette.white,
-    borderRadius: 13,
-    height: 102,
-    justifyContent: "center",
-    minWidth: 74,
-    width: 74,
-    ...Shadows.card,
-  },
   pressCard: { width: 342 },
   pressFull: { width: "100%" },
-  recentLabelImage: { height: "94%", width: "94%" },
-  recentLabelStage: {
-    alignItems: "center",
-    backgroundColor: Palette.white,
-    borderRadius: 13,
-    height: 102,
-    justifyContent: "center",
-    minWidth: 74,
-    width: 74,
-    ...Shadows.card,
-  },
   wineCard: {
     alignItems: "center",
     borderRadius: 22,
