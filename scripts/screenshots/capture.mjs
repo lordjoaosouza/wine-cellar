@@ -135,12 +135,12 @@ async function captureHomeAndSearch(browser) {
     .click();
   await settle(page, 800);
   const input = page.getByRole("textbox").first();
-  await input.fill("catena");
+  await input.fill("miolo");
   await input.press("Enter");
   await settle(page, 1200);
   await shoot(page, "03-search-results");
 
-  await input.fill("Château Pétrus 2015");
+  await input.fill("Miolo Reserva Tannat");
   await input.press("Enter");
   await settle(page, 2600);
   await shoot(page, "04-search-researching");
@@ -149,7 +149,7 @@ async function captureHomeAndSearch(browser) {
 
 async function captureWine(browser) {
   const { context, page } = await newPage(browser);
-  await open(page, "/wine/catena-malbec");
+  await open(page, "/wine/miolo-sesmarias-2023");
   await shoot(page, "05-wine-detail");
 
   await page

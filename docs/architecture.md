@@ -80,4 +80,4 @@ Screens talk to `services/`, which wrap `api-client.ts` (token refresh, error ma
 
 ## Web build
 
-The web target exports as a single-page app (`web.output: "single"` in `app.json`). Static pre-rendering produced server-side layouts with zero widths that survived hydration; the app is fully client-side behind login, so a SPA is the right shape. The header and tab bar are `position: fixed` on web so they stay on screen when the document scrolls.
+The web target exports as a single-page app (`web.output: "single"` in `app.json`). Static pre-rendering produced server-side layouts with zero widths that survived hydration; the app is fully client-side behind login, so a SPA is the right shape. On web the stack applies no card transforms (a transformed ancestor would turn `position: fixed` into `absolute`), so the header and tab bar can stay fixed while the document scrolls, and modals render through a portal to `document.body` (`components/body-portal.web.tsx`).

@@ -1,7 +1,9 @@
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import {
   aiStatus,
   cellar,
+  PHOTO_KEYS,
   profile,
   ratings,
   recentViews,
@@ -17,68 +19,56 @@ const require = createRequire(
 );
 const sharp = require("sharp");
 
-const BOTTLES = {
-  "00000000-0000-4000-8000-000000000001.jpg": {
-    glass: "#2B0F1E",
-    label: "#F5EEDC",
-    subtitle: "MALBEC",
-    text: "#5C1736",
-    title: "CATENA",
-  },
-  "00000000-0000-4000-8000-000000000002.jpg": {
-    glass: "#1D1216",
-    label: "#F8F1E4",
-    subtitle: "RESERVA",
-    text: "#1A1216",
-    title: "CRASTO",
-  },
-  "00000000-0000-4000-8000-000000000003.jpg": {
-    glass: "#25101A",
-    label: "#111111",
-    subtitle: "DEL DIABLO",
-    text: "#E8D4DE",
-    title: "CASILLERO",
-  },
-  "00000000-0000-4000-8000-000000000004.jpg": {
-    glass: "#2A1420",
-    label: "#EFE3D2",
-    subtitle: "SYRAH",
-    text: "#3D1828",
-    title: "MIOLO",
-  },
-};
+const ASSETS = new URL("./assets/", import.meta.url);
 
-function bottleSvg({ glass, label, text, title, subtitle }) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="1500" viewBox="0 0 600 1500">
-  <rect width="600" height="1500" fill="#ffffff"/>
-  <path d="M245 40 h110 v220 c0 60 70 110 70 200 v940 a55 55 0 0 1 -55 55 h-140 a55 55 0 0 1 -55 -55 v-940 c0 -90 70 -140 70 -200 z" fill="${glass}"/>
-  <path d="M255 60 h20 v210 c0 70 -60 110 -60 200 v900 h-20 v-900 c0 -100 60 -140 60 -200 z" fill="#ffffff" opacity="0.14"/>
-  <rect x="245" y="40" width="110" height="90" rx="10" fill="#7A2B54"/>
-  <rect x="170" y="760" width="260" height="330" rx="10" fill="${label}"/>
-  <rect x="186" y="776" width="228" height="298" rx="6" fill="none" stroke="${text}" stroke-width="3" opacity="0.5"/>
-  <text x="300" y="880" text-anchor="middle" font-family="Georgia, serif" font-size="46" font-weight="700" fill="${text}">${title}</text>
-  <text x="300" y="935" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="26" letter-spacing="4" fill="${text}">${subtitle}</text>
-  <line x1="220" y1="970" x2="380" y2="970" stroke="${text}" stroke-width="2" opacity="0.6"/>
-  <text x="300" y="1020" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="20" fill="${text}" opacity="0.8">750 ml · 13.5% vol</text>
-</svg>`;
+const STORE_PHOTOS = new Map([
+  [PHOTO_KEYS["terracas-noar-pinot-noir"], "terracas-noar-pinot-noir.jpg"],
+  [PHOTO_KEYS["vinha-solo-nero-selvaggio"], "vinha-solo-nero-selvaggio.jpg"],
+  [PHOTO_KEYS["miolo-sesmarias"], "miolo-sesmarias.jpg"],
+]);
+
+const OTHER_PHOTOS = new Map([
+  [PHOTO_KEYS["miolo-sesmarias-tasting"], "miolo-sesmarias-tasting.jpg"],
+]);
+
+const WHITE = { alpha: 1, b: 255, g: 255, r: 255 };
+const TRIM_THRESHOLD = 24;
+const MARGIN_RATIO = 0.04;
+
+async function trimmedStorePhoto(file) {
+  const { data, info } = await sharp(new URL(file, ASSETS).pathname)
+    .flatten({ background: WHITE })
+    .trim({ background: WHITE, threshold: TRIM_THRESHOLD })
+    .toBuffer({ resolveWithObject: true });
+  const margin = Math.round(Math.max(info.width, info.height) * MARGIN_RATIO);
+  return sharp(data)
+    .extend({
+      background: WHITE,
+      bottom: margin,
+      left: margin,
+      right: margin,
+      top: margin,
+    })
+    .jpeg({ mozjpeg: true, quality: 88 })
+    .toBuffer();
 }
 
-const bottleCache = new Map();
+const photoCache = new Map();
 
-async function bottleImage(key) {
-  const spec = BOTTLES[key];
-  if (!spec) {
-    return null;
+async function photo(key) {
+  if (!photoCache.has(key)) {
+    if (STORE_PHOTOS.has(key)) {
+      photoCache.set(key, await trimmedStorePhoto(STORE_PHOTOS.get(key)));
+    } else if (OTHER_PHOTOS.has(key)) {
+      photoCache.set(
+        key,
+        await readFile(new URL(OTHER_PHOTOS.get(key), ASSETS))
+      );
+    } else {
+      photoCache.set(key, null);
+    }
   }
-  if (!bottleCache.has(key)) {
-    bottleCache.set(
-      key,
-      await sharp(Buffer.from(bottleSvg(spec)))
-        .jpeg({ quality: 90 })
-        .toBuffer()
-    );
-  }
-  return bottleCache.get(key);
+  return photoCache.get(key);
 }
 
 function json(route, body, status = 200) {
@@ -204,7 +194,7 @@ export function createMockApi(state) {
     const method = request.method();
 
     if (path.startsWith("/uploads/")) {
-      const image = await bottleImage(path.slice("/uploads/".length));
+      const image = await photo(path.slice("/uploads/".length));
       return image
         ? route.fulfill({ body: image, contentType: "image/jpeg", status: 200 })
         : route.fulfill({ status: 404 });

@@ -9,34 +9,6 @@ const sharp = require("sharp");
 const WIDTH = 720;
 const HEIGHT = 1280;
 
-function sceneSvg() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3a2a22"/>
-      <stop offset="1" stop-color="#14100e"/>
-    </linearGradient>
-    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#1c0b13"/>
-      <stop offset="0.45" stop-color="#3b1424"/>
-      <stop offset="1" stop-color="#160810"/>
-    </linearGradient>
-  </defs>
-  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#bg)"/>
-  <rect x="0" y="1010" width="${WIDTH}" height="270" fill="#5a4032"/>
-  <rect x="0" y="1010" width="${WIDTH}" height="14" fill="#7a5a48"/>
-  <path d="M312 60 h96 v200 c0 60 68 110 68 200 v560 a48 48 0 0 1 -48 48 h-136 a48 48 0 0 1 -48 -48 v-560 c0 -90 68 -140 68 -200 z" fill="url(#glass)"/>
-  <rect x="312" y="60" width="96" height="82" rx="8" fill="#7A2B54"/>
-  <rect x="248" y="640" width="224" height="290" rx="8" fill="#F5EEDC"/>
-  <rect x="262" y="654" width="196" height="262" rx="4" fill="none" stroke="#5C1736" stroke-width="3" opacity="0.5"/>
-  <text x="360" y="745" text-anchor="middle" font-family="Georgia, serif" font-size="44" font-weight="700" fill="#5C1736">CATENA</text>
-  <text x="360" y="795" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="24" letter-spacing="4" fill="#5C1736">MALBEC</text>
-  <line x1="290" y1="825" x2="430" y2="825" stroke="#5C1736" stroke-width="2" opacity="0.6"/>
-  <text x="360" y="870" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="20" fill="#5C1736" opacity="0.85">MENDOZA · 2021</text>
-  <ellipse cx="360" cy="1030" rx="120" ry="16" fill="#000" opacity="0.35"/>
-</svg>`;
-}
-
 function toI420(rgb, width, height) {
   const ySize = width * height;
   const chromaWidth = width / 2;
@@ -68,7 +40,11 @@ function toI420(rgb, width, height) {
 }
 
 export async function writeFakeCameraFeed(file) {
-  const rgb = await sharp(Buffer.from(sceneSvg()))
+  const rgb = await sharp(
+    new URL("./assets/nero-label-camera.jpg", import.meta.url).pathname
+  )
+    .rotate()
+    .resize({ fit: "cover", height: HEIGHT, position: "centre", width: WIDTH })
     .flop()
     .removeAlpha()
     .raw()

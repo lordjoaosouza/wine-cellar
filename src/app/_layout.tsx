@@ -4,9 +4,9 @@ import {
   useRouter,
   useSegments,
 } from "expo-router";
-import { Stack } from "expo-router/js-stack";
+import { Stack, type StackCardStyleInterpolator } from "expo-router/js-stack";
 import { useEffect } from "react";
-import { Easing } from "react-native";
+import { Easing, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { Palette } from "@/constants/theme";
@@ -23,6 +23,9 @@ const slideSpec = {
     easing: Easing.bezier(0.22, 1, 0.36, 1),
   },
 };
+
+const isWeb = Platform.OS === "web";
+const noCardStyle: StackCardStyleInterpolator = () => ({});
 
 function useAuthGuard() {
   const { isLoading, isAuthenticated } = useSession();
@@ -51,9 +54,9 @@ function RootNavigator() {
         cardOverlayEnabled: false,
         cardShadowEnabled: false,
         cardStyle: { backgroundColor: Palette.white },
-        cardStyleInterpolator: forFullHorizontalSlide,
+        cardStyleInterpolator: isWeb ? noCardStyle : forFullHorizontalSlide,
         gestureDirection: "horizontal",
-        gestureEnabled: true,
+        gestureEnabled: !isWeb,
         gestureResponseDistance: 80,
         headerShown: false,
         transitionSpec: {
@@ -77,10 +80,10 @@ function RootNavigator() {
           cardOverlayEnabled: true,
           cardShadowEnabled: false,
           cardStyle: { backgroundColor: Palette.white },
-          cardStyleInterpolator: forVerticalCover,
+          cardStyleInterpolator: isWeb ? noCardStyle : forVerticalCover,
           detachPreviousScreen: false,
           gestureDirection: "vertical",
-          gestureEnabled: true,
+          gestureEnabled: !isWeb,
           gestureResponseDistance: 160,
           presentation: "transparentModal",
           transitionSpec: {

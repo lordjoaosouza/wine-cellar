@@ -1,138 +1,142 @@
 export const API_URL = "http://localhost:3000";
 
-const wine = (overrides) => ({
-  agingNotes:
-    "This wine's structure gives it real aging potential — many examples reward 5 to 10 years resting in the cellar.",
-  country: "Argentina",
-  grapes: ["Malbec"],
-  imageSource: "WEB",
-  offers: [],
-  pairings: ["grilled ribeye", "lamb chops", "aged manchego"],
-  price: null,
-  priceMarket: null,
-  producerProfile: null,
-  region: "Mendoza",
-  regionProfile: null,
-  servingNotes:
-    "Serve at cool room temperature, around 16–18°C; decanting for 30 minutes can help open up the aromas.",
-  tastingNotes: null,
-  type: "Dry red",
-  vintage: "2021",
-  winery: null,
-  ...overrides,
-});
+export const PHOTO_KEYS = {
+  "miolo-sesmarias": "00000000-0000-4000-8000-000000000003.jpg",
+  "miolo-sesmarias-tasting": "00000000-0000-4000-8000-000000000005.jpg",
+  "terracas-noar-pinot-noir": "00000000-0000-4000-8000-000000000001.jpg",
+  "vinha-solo-nero-selvaggio": "00000000-0000-4000-8000-000000000002.jpg",
+};
+
+const photoUrl = (asset) => `${API_URL}/uploads/${PHOTO_KEYS[asset]}`;
 
 export const wines = [
-  wine({
-    id: "catena-malbec",
-    imageUrl: `${API_URL}/uploads/00000000-0000-4000-8000-000000000001.jpg`,
-    name: "Catena Malbec",
+  {
+    agingNotes:
+      "The producer indicates a potential aging period of about 5-7 years. It can also be enjoyed young for its fresher fruit and herbal character.",
+    country: "Brazil",
+    grapes: ["Cabernet Sauvignon"],
+    id: "vinha-solo-nero-selvaggio-2023",
+    imageSource: "WEB",
+    imageUrl: photoUrl("vinha-solo-nero-selvaggio"),
+    name: "Vinha Solo Nero Selvaggio",
     offers: [
       {
-        amount: 225.9,
-        amountBrl: 225.9,
+        amount: 78,
+        amountBrl: 78,
         country: "Brazil",
         currency: "BRL",
-        store: "Cia do Vinho",
-        url: "https://www.ciadovinho.com.br/catena-malbec",
-      },
-      {
-        amount: 219,
-        amountBrl: 219,
-        country: "Brazil",
-        currency: "BRL",
-        store: "Mistral",
-        url: "https://www.mistral.com.br/catena-malbec",
-      },
-      {
-        amount: 232.5,
-        amountBrl: 232.5,
-        country: "Brazil",
-        currency: "BRL",
-        store: "Grand Cru",
-        url: "https://www.grandcru.com.br/catena-malbec",
+        store: "Vinhos & Vinhos",
+        url: "https://www.vinhosevinhos.com/vinha-solo-nero-selvaggio.html",
       },
     ],
-    price: "~R$ 230",
+    pairings: [
+      "grilled sirloin",
+      "mushroom pizza",
+      "beef risotto",
+      "roast lamb",
+    ],
+    price: "~R$ 78",
     priceMarket: "BR",
     producerProfile:
-      "Bodega Catena Zapata was founded in 1902 by Nicola Catena in Mendoza. Under Nicolás Catena Zapata it pioneered high-altitude Malbec, and today it is regarded as the reference producer for Argentine fine wine.",
-    regionProfile:
-      "Mendoza sits at the foot of the Andes in western Argentina. High altitude, intense sunlight and cool nights give Malbec deep color, ripe fruit and fresh acidity, with alluvial soils adding structure.",
-    tastingNotes:
-      "Aromas of blackberry, violet and a touch of vanilla. The palate is full-bodied with ripe plum, soft tannins and a long, spiced finish that turns gently savoury.",
-    winery: "Bodega Catena Zapata",
-  }),
-  wine({
-    country: "Portugal",
-    grapes: ["Touriga Nacional", "Touriga Franca", "Tinta Roriz"],
-    id: "crasto-reserva",
-    imageUrl: `${API_URL}/uploads/00000000-0000-4000-8000-000000000002.jpg`,
-    name: "Quinta do Crasto Reserva Vinhas Velhas",
-    price: "~R$ 390",
-    priceMarket: "BR",
-    region: "Douro",
-    tastingNotes:
-      "Dark fruit, graphite and dried herbs. Dense and layered, with firm tannins and a long mineral finish.",
-    vintage: "2019",
-    winery: "Quinta do Crasto",
-  }),
-  wine({
-    country: "Chile",
-    grapes: ["Cabernet Sauvignon"],
-    id: "casillero-reserva",
-    imageUrl: `${API_URL}/uploads/00000000-0000-4000-8000-000000000003.jpg`,
-    name: "Casillero del Diablo Reserva Cabernet Sauvignon",
-    price: "~R$ 75",
-    priceMarket: "BR",
-    region: "Central Valley",
-    vintage: "2022",
-    winery: "Concha y Toro",
-  }),
-  wine({
-    country: "Brazil",
-    grapes: ["Chardonnay", "Pinot Noir"],
-    id: "chandon-brut",
-    imageSource: null,
-    imageUrl: null,
-    name: "Chandon Brut",
-    price: "~R$ 95",
-    priceMarket: "BR",
+      "Vinha Solo was created by Milton Scola and Raimundo Demore in Fazenda Souza, Caxias do Sul. Its estate has about 20 hectares of vineyards planted with material brought from Italy, and the winery focuses on spontaneous fermentation and minimal-intervention wines.",
     region: "Serra Gaúcha",
+    regionProfile:
+      "Serra Gaúcha lies in northeastern Rio Grande do Sul and is Brazil's historic center of viticulture. Its elevated vineyards, humid temperate conditions and predominantly basalt-derived soils support a wide range of grapes, from Cabernet Sauvignon and Merlot to Chardonnay and Pinot Noir.",
     servingNotes:
-      "Serve well chilled, around 6–8°C, in a tulip glass or flute to preserve the bubbles.",
-    type: "Sparkling wine",
-    vintage: "NV",
-    winery: "Chandon",
-  }),
-  wine({
-    country: "Brazil",
-    grapes: ["Syrah"],
-    id: "miolo-syrah",
-    imageUrl: `${API_URL}/uploads/00000000-0000-4000-8000-000000000004.jpg`,
-    name: "Miolo Single Vineyard Syrah",
-    price: "~R$ 120",
-    priceMarket: "BR",
-    region: "Campanha",
-    vintage: "2020",
-    winery: "Miolo",
-  }),
-  wine({
-    country: "New Zealand",
-    grapes: ["Sauvignon Blanc"],
-    id: "cloudy-bay-sb",
-    imageSource: null,
-    imageUrl: null,
-    name: "Cloudy Bay Sauvignon Blanc",
-    price: "~R$ 280",
-    priceMarket: "INTERNATIONAL",
-    region: "Marlborough",
-    servingNotes:
-      "Serve chilled, around 8–10°C, to keep its acidity and aromatics crisp.",
-    type: "Dry white",
+      "Serve at 16-18°C in a medium to large red-wine glass. Brief aeration can help open the fruit and herbal aromas.",
+    tastingNotes:
+      "Ruby red with good intensity. The nose shows ripe cherry, cassis and fresh herbal notes, including red pepper. The palate combines lively acidity, firm but integrated tannins and moderate body, finishing clean and fruit-driven.",
+    type: "Dry red",
     vintage: "2023",
-    winery: "Cloudy Bay",
-  }),
+    winery: "Vinha Solo",
+  },
+  {
+    agingNotes:
+      "This style is primarily suited to drinking while its red-fruit character and acidity remain fresh. Short-term cellaring is reasonable, but it is not designed as a heavily structured long-aging red.",
+    country: "Brazil",
+    grapes: ["Pinot Noir"],
+    id: "terracas-noar-pinot-noir-2025",
+    imageSource: "WEB",
+    imageUrl: photoUrl("terracas-noar-pinot-noir"),
+    name: "Terraças Noar Pinot Noir",
+    offers: [
+      {
+        amount: 130,
+        amountBrl: 130,
+        country: "Brazil",
+        currency: "BRL",
+        store: "Vinhos & Vinhos",
+        url: "https://www.vinhosevinhos.com/terracas-noar-pinot-noir-2025.html",
+      },
+    ],
+    pairings: [
+      "mushroom risotto",
+      "roast chicken",
+      "margherita pizza",
+      "grilled salmon",
+    ],
+    price: "~R$ 130",
+    priceMarket: "BR",
+    producerProfile:
+      "Terraças is a family wine producer based in Pinto Bandeira, in the Serra Gaúcha. Its vineyards and wines are closely linked to the high-altitude local landscape, and the winery participated in the regional work connected with the Altos de Pinto Bandeira denomination of origin.",
+    region: "Serra Gaúcha",
+    regionProfile:
+      "Serra Gaúcha lies in northeastern Rio Grande do Sul and combines altitude, regular rainfall and basalt-derived soils. Pinto Bandeira is especially associated with Chardonnay, Pinot Noir and Riesling Itálico, varieties widely used in both still wines and traditional-method sparkling wines.",
+    servingNotes:
+      "Serve at about 14-16°C in a Burgundy-style glass. Extended decanting is generally unnecessary, though a few minutes of air can help the aromas develop.",
+    tastingNotes:
+      "Medium-intensity ruby in color, with aromas centered on raspberry, strawberry, dark plum, subtle spice and earthy nuances. The palate is fresh and relatively light, with delicate tannins, balanced acidity and a smooth, fruit-led finish.",
+    type: "Dry red",
+    vintage: "2025",
+    winery: "Terraças",
+  },
+  {
+    agingNotes:
+      "The producer states a cellaring potential of about 20 years. The 2023 vintage is highly structured and can benefit from several years in bottle before reaching greater aromatic and tannic integration.",
+    country: "Brazil",
+    grapes: [
+      "Cabernet Sauvignon",
+      "Merlot",
+      "Petit Verdot",
+      "Tannat",
+      "Tempranillo",
+    ],
+    id: "miolo-sesmarias-2023",
+    imageSource: "WEB",
+    imageUrl: photoUrl("miolo-sesmarias"),
+    name: "Miolo Sesmarias",
+    offers: [
+      {
+        amount: 1049,
+        amountBrl: 1049,
+        country: "Brazil",
+        currency: "BRL",
+        store: "Vinhos & Vinhos",
+        url: "https://www.vinhosevinhos.com/miolo-sesmarias-2023.html",
+      },
+    ],
+    pairings: [
+      "braised short ribs",
+      "roast lamb",
+      "venison",
+      "aged hard cheese",
+      "grilled ribeye",
+    ],
+    price: "~R$ 1.049",
+    priceMarket: "BR",
+    producerProfile:
+      "Miolo traces its family's Brazilian viticultural history to Giuseppe Miolo's arrival in 1897, while commercial wine production began in 1989. Headquartered in Vale dos Vinhedos, the group operates wine projects in several Brazilian regions, including Seival in Campanha Meridional.",
+    region: "Campanha Gaúcha",
+    regionProfile:
+      "Campanha Gaúcha occupies the southern and western plains of Rio Grande do Sul near the Uruguayan border. Compared with Serra Gaúcha it has broader open landscapes and generally drier conditions, favoring structured reds from grapes such as Tannat, Cabernet Sauvignon and Touriga Nacional.",
+    servingNotes:
+      "Serve at 16-18°C in a large red-wine glass. Decanting for about one to two hours can help a young bottle reveal its layered fruit, floral and oak-derived aromas.",
+    tastingNotes:
+      "Deep dark red with violet tones. The nose is layered with violets, ripe black fruit, spices and balsamic notes. Dense and full-bodied on the palate, it combines refreshing acidity with silky tannins, substantial concentration and a long, persistent finish.",
+    type: "Dry red",
+    vintage: "2023",
+    winery: "Miolo",
+  },
 ];
 
 export const wineById = new Map(wines.map((entry) => [entry.id, entry]));
@@ -151,56 +155,67 @@ export const profile = {
 };
 
 export const cellar = [
-  { ...wineById.get("catena-malbec"), quantity: 6, savedAt: at(2) },
-  { ...wineById.get("crasto-reserva"), quantity: 2, savedAt: at(9) },
-  { ...wineById.get("chandon-brut"), quantity: 3, savedAt: at(20) },
-  { ...wineById.get("miolo-syrah"), quantity: 1, savedAt: at(31) },
+  { ...wineById.get("miolo-sesmarias-2023"), quantity: 2, savedAt: at(3) },
+  {
+    ...wineById.get("vinha-solo-nero-selvaggio-2023"),
+    quantity: 4,
+    savedAt: at(12),
+  },
+  {
+    ...wineById.get("terracas-noar-pinot-noir-2025"),
+    quantity: 1,
+    savedAt: at(20),
+  },
 ];
 
 export const wishlist = [
-  { ...wineById.get("cloudy-bay-sb"), savedAt: at(1) },
-  { ...wineById.get("casillero-reserva"), savedAt: at(5) },
+  { ...wineById.get("terracas-noar-pinot-noir-2025"), savedAt: at(1) },
+  { ...wineById.get("vinha-solo-nero-selvaggio-2023"), savedAt: at(6) },
 ];
 
 export const ratings = [
   {
-    ...wineById.get("catena-malbec"),
-    balance: 4,
-    complexity: 4,
-    conclusion: "A dependable Malbec that punches above its price.",
-    emotion: 4,
-    intensity: 4,
-    nose: "Blackberry, violets and a little vanilla.",
-    palate: "Round and ripe with soft tannins and a spiced finish.",
-    persistence: 3,
-    photoUrl: null,
-    savedAt: at(2),
-    score: 8.5,
-    visual: "Deep ruby with a purple rim.",
-    wineId: "catena-malbec",
+    ...wineById.get("miolo-sesmarias-2023"),
+    balance: 5,
+    complexity: 5,
+    conclusion:
+      "A benchmark Brazilian red: layered, concentrated and still young. Worth cellaring, but already remarkable with a long decant.",
+    emotion: 5,
+    intensity: 5,
+    nose: "Violets, ripe blackberry and plum, sweet spice, a balsamic and cedar edge from the oak.",
+    palate:
+      "Dense and full-bodied, refreshing acidity holding up the concentration, silky tannins and a very long, persistent finish.",
+    persistence: 5,
+    photoUrl: photoUrl("miolo-sesmarias-tasting"),
+    savedAt: at(3),
+    score: 9.4,
+    visual: "Deep dark red, almost opaque, with violet reflections on the rim.",
+    wineId: "miolo-sesmarias-2023",
   },
   {
-    ...wineById.get("miolo-syrah"),
-    balance: 3,
+    ...wineById.get("vinha-solo-nero-selvaggio-2023"),
+    balance: 4,
     complexity: 3,
-    conclusion: "Honest, peppery and easy to like.",
-    emotion: 3,
+    conclusion:
+      "Honest, lively and unfiltered. Great value for a weekday bottle.",
+    emotion: 4,
     intensity: 3,
-    nose: "Black pepper and blueberry.",
-    palate: "Medium body, fresh acidity.",
+    nose: "Ripe cherry, cassis and a green, peppery herbal note.",
+    palate:
+      "Lively acidity, firm but integrated tannins, moderate body, clean fruit-driven finish.",
     persistence: 3,
     photoUrl: null,
-    savedAt: at(14),
-    score: 7.5,
-    visual: "Medium ruby.",
-    wineId: "miolo-syrah",
+    savedAt: at(12),
+    score: 8.2,
+    visual: "Ruby red with good intensity.",
+    wineId: "vinha-solo-nero-selvaggio-2023",
   },
 ];
 
 export const recentViews = [
-  { ...wineById.get("crasto-reserva"), viewedAt: at(0) },
-  { ...wineById.get("catena-malbec"), viewedAt: at(1) },
-  { ...wineById.get("cloudy-bay-sb"), viewedAt: at(3) },
+  { ...wineById.get("miolo-sesmarias-2023"), viewedAt: at(0) },
+  { ...wineById.get("vinha-solo-nero-selvaggio-2023"), viewedAt: at(1) },
+  { ...wineById.get("terracas-noar-pinot-noir-2025"), viewedAt: at(2) },
 ];
 
 export const tuyaStatus = {
@@ -320,6 +335,6 @@ export const researchJob = {
   id: "job-1",
   progress: 0.46,
   results: null,
-  stage: "Writing up Château Pétrus 2015",
+  stage: "Writing up Miolo Reserva Tannat",
   status: "running",
 };

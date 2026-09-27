@@ -1,6 +1,6 @@
 # Screenshots
 
-Every screen of the app, captured from the web build at iPhone 17 size (402 × 874 points at 3×, so 1206 × 2622 pixels) against a mocked API. The wines, prices, sensor readings and download progress are fixtures, so the pictures show every state without a running server.
+Every screen of the app, captured from the web build at iPhone 17 size (402 × 874 points at 3×, so 1206 × 2622 pixels) against a mocked API. The three wines are real Brazilian bottles with their store photos and a real tasting photo (`scripts/screenshots/assets/`); prices, sensor readings and download progress are fixtures, so the pictures show every state without a running server.
 
 ## Sign in and home
 

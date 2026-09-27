@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BodyPortal } from "@/components/body-portal";
 import { Icon } from "@/components/icon";
 import { ProfileButton } from "@/components/profile-avatar";
 import { BottomTabInset, Palette, Shadows } from "@/constants/theme";
@@ -83,25 +84,27 @@ export function TabScreenHeader() {
   }
 
   return (
-    <View pointerEvents="box-none" style={styles.overlay}>
-      <View
-        pointerEvents="box-none"
-        style={[styles.menu, { paddingTop: insets.top + TabHeaderTopGap }]}
-      >
-        <View style={[styles.pill, { width: barWidth }]}>
-          <View style={styles.lockup}>
-            <View style={styles.mark}>
-              <Icon color={Palette.white} name={tab.icon} size={20} />
+    <BodyPortal>
+      <View pointerEvents="box-none" style={styles.overlay}>
+        <View
+          pointerEvents="box-none"
+          style={[styles.menu, { paddingTop: insets.top + TabHeaderTopGap }]}
+        >
+          <View style={[styles.pill, { width: barWidth }]}>
+            <View style={styles.lockup}>
+              <View style={styles.mark}>
+                <Icon color={Palette.white} name={tab.icon} size={20} />
+              </View>
+              <View>
+                <Text style={styles.title}>{tab.title}</Text>
+                <Text style={styles.caption}>{tab.caption}</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.title}>{tab.title}</Text>
-              <Text style={styles.caption}>{tab.caption}</Text>
-            </View>
+            <ProfileButton />
           </View>
-          <ProfileButton />
         </View>
       </View>
-    </View>
+    </BodyPortal>
   );
 }
 

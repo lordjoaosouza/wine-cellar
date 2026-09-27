@@ -8,6 +8,8 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { BodyPortal } from "@/components/body-portal";
+
 export function ModalShell({
   visible,
   onRequestClose,
@@ -31,7 +33,11 @@ export function ModalShell({
     if (!visible) {
       return null;
     }
-    return <View style={webOverlayStyle}>{children}</View>;
+    return (
+      <BodyPortal>
+        <View style={webOverlayStyle}>{children}</View>
+      </BodyPortal>
+    );
   }
 
   return (
