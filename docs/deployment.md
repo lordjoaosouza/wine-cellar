@@ -46,6 +46,25 @@ The stack does not terminate TLS. Put it behind [Tailscale Serve](https://tailsc
 
 Outbound access needed by the server: Resend, Tuya Cloud, `api.frankfurter.dev`, the web (through SearXNG and store pages) and Ollama on the host.
 
+## One command to start and stop everything
+
+`scripts/bin/wine-cellar` starts and stops the Ollama systemd service together with the compose stack, so the GPU and memory are free when you are not using the app. Put it on your PATH once:
+
+```bash
+sudo ln -s "$PWD/scripts/bin/wine-cellar" /usr/local/bin/wine-cellar
+```
+
+| Command | What it does |
+| --- | --- |
+| `wine-cellar start` | `systemctl start ollama`, `docker compose up -d`, then waits for `/health` |
+| `wine-cellar stop` | `docker compose down`, then `systemctl stop ollama` |
+| `wine-cellar restart` | Both, in order |
+| `wine-cellar status` | Ollama state and loaded models, container states, the health report |
+| `wine-cellar logs` | Follows the API logs |
+| `wine-cellar update` | `git pull`, rebuilds the images and restarts |
+
+Starting and stopping the Ollama service uses `sudo`. `WINE_CELLAR_API_URL` and `WINE_CELLAR_OLLAMA_SERVICE` override the defaults (`http://localhost:3000`, `ollama`).
+
 ## Health
 
 `GET /health` reports the database, Ollama and SearXNG separately and returns `degraded` when one is down. Point an uptime monitor at it; the app's AI screen shows the same Ollama state.

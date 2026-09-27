@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+API_URL="${WINE_CELLAR_API_URL:-http://localhost:3000}"
+OLLAMA_SERVICE="${WINE_CELLAR_OLLAMA_SERVICE:-ollama}"
+
+compose() {
+  docker compose --project-directory "${REPO_DIR}" "$@"
+}
+
+ollama_is_active() {
+  systemctl is-active --quiet "${OLLAMA_SERVICE}"
+}
+
+start_ollama() {
+  if ollama_is_active; then
+    echo "ollama: already running"
+  else
+    echo "ollama: starting"
+    sudo systemctl start "${OLLAMA_SERVICE}"
+  fi
+}
+
+stop_ollama() {
+  if ollama_is_active; then
+    echo "ollama: stopping"
+    sudo systemctl stop "${OLLAMA_SERVICE}"
+  else
+    echo "ollama: already stopped"
+  fi
+}
+
+start_stack() {
+  echo "stack: starting postgres, searxng and api"
+  compose up -d
+}
+
+stop_stack() {
+  echo "stack: stopping"
+  compose down
+}
+
+wait_for_health() {
+  local attempt
+  for attempt in $(seq 1 30); do
+    if curl -fsS "${API_URL}/health" >/dev/null 2>&1; then
+      echo "api: ready at ${API_URL}"
+      return 0
+    fi
+    sleep 2
+  done
+  echo "api: did not answer at ${API_URL}/health after 60s" >&2
+  return 1
+}
+
+show_status() {
+  if ollama_is_active; then
+    echo "ollama: running"
+    ollama ps 2>/dev/null | tail -n +2 | sed 's/^/  /'
+  else
+    echo "ollama: stopped"
+  fi
+  echo "stack:"
+  compose ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}' | sed 's/^/  /'
+  if health="$(curl -fsS "${API_URL}/health" 2>/dev/null)"; then
+    echo "health: ${health}"
+  else
+    echo "health: api not answering at ${API_URL}"
+  fi
+}
+
+usage() {
+  cat <<USAGE
+Usage: wine-cellar <command>
+
+  start     Start the Ollama service and the Docker Compose stack, then wait for the API
+  stop      Stop the stack and the Ollama service, freeing the GPU
+  restart   stop, then start
+  status    Show Ollama, loaded models, containers and the API health report
+  logs      Follow the API logs
+  update    Pull the latest code, rebuild the stack and restart it
+
+Environment: WINE_CELLAR_API_URL (default ${API_URL}), WINE_CELLAR_OLLAMA_SERVICE (default ${OLLAMA_SERVICE})
+USAGE
+}
+
+case "${1:-}" in
+  start)
+    start_ollama
+    start_stack
+    wait_for_health
+    ;;
+  stop)
+    stop_stack
+    stop_ollama
+    ;;
+  restart)
+    stop_stack
+    stop_ollama
+    start_ollama
+    start_stack
+    wait_for_health
+    ;;
+  status)
+    show_status
+    ;;
+  logs)
+    compose logs -f api
+    ;;
+  update)
+    git -C "${REPO_DIR}" pull --ff-only
+    start_ollama
+    compose up --build -d --remove-orphans
+    wait_for_health
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac

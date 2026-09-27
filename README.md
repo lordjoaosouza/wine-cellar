@@ -94,6 +94,8 @@ The app only ever talks to the API. The API is the only thing that talks to Olla
 
 4. Pick a model in Preferences → AI model, or keep the default `qwen3.5:9b`.
 
+On a Linux box you share with other work, `scripts/bin/wine-cellar start|stop|status` brings Ollama and the whole stack up or down with one command (see [docs/deployment.md](docs/deployment.md)).
+
 ## Documentation
 
 | Document | What it covers |
