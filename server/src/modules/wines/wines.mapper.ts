@@ -7,6 +7,7 @@ import {
   wineOffersFromJson,
 } from "./wine-pricing.js";
 import type { ResearchedWine } from "./wine-research.js";
+import { wineSearchText } from "./wine-search-text.js";
 import type { WineDto } from "./wines.schemas.js";
 
 export function researchedWineToData(
@@ -29,6 +30,14 @@ export function researchedWineToData(
     producerProfile: result.producerProfile,
     region: result.region,
     regionProfile: result.regionProfile,
+    searchText: wineSearchText({
+      country: result.country,
+      grapes: result.grapes,
+      name: result.name,
+      region: result.region,
+      vintage: result.vintage,
+      winery: result.producer,
+    }),
     servingNotes: servingNotesFor(result.type),
     tastingNotes: result.tastingNotes,
     type: result.type,

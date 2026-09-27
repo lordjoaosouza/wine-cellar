@@ -1,17 +1,17 @@
 import { Router } from "express";
-import { z } from "zod";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { bearerAuth, registry } from "../../openapi/registry.js";
+import {
+  okResponseSchema,
+  registry,
+  security,
+} from "../../openapi/registry.js";
 import { accountArchiveSchema } from "./account.schemas.js";
 import { exportAccount, importAccount } from "./account.service.js";
 
 export const accountRouter = Router();
 accountRouter.use(requireAuth);
-
-const security = [{ [bearerAuth.name]: [] }];
-const okResponse = z.object({ ok: z.literal(true) });
 
 registry.registerPath({
   method: "get",
@@ -43,7 +43,7 @@ registry.registerPath({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: okResponse } },
+      content: { "application/json": { schema: okResponseSchema } },
       description: "Imported",
     },
   },

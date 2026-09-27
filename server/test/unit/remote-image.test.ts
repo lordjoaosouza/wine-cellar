@@ -40,7 +40,7 @@ describe("downloadImage", () => {
     ];
     for (const response of cases) {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response));
-      // biome-ignore lint/performance/noAwaitInLoops: each case stubs fetch in turn
+
       expect(await downloadImage("https://cdn.loja.com.br/x")).toBeNull();
     }
     expect(await downloadImage("ftp://cdn.loja.com.br/x.jpg")).toBeNull();

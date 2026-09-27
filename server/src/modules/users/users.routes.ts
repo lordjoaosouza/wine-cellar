@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { z } from "zod";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { bearerAuth, registry } from "../../openapi/registry.js";
+import {
+  okResponseSchema,
+  registry,
+  security,
+} from "../../openapi/registry.js";
 import {
   profileResponseSchema,
   tuyaCredentialsInputSchema,
@@ -20,9 +23,6 @@ import {
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth);
-
-const okResponse = z.object({ ok: z.literal(true) });
-const security = [{ [bearerAuth.name]: [] }];
 
 registry.registerPath({
   method: "get",
@@ -128,7 +128,7 @@ registry.registerPath({
   path: "/users/me/tuya",
   responses: {
     200: {
-      content: { "application/json": { schema: okResponse } },
+      content: { "application/json": { schema: okResponseSchema } },
       description: "Removed",
     },
   },

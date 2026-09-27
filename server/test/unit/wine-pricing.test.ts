@@ -71,7 +71,7 @@ describe("aggregatePrices", () => {
 
   it("takes the median of three or more after dropping outliers", () => {
     expect(aggregatePrices([100, 110, 130])).toBe(110);
-    // 500 is more than double the median (120) and is discarded.
+
     expect(aggregatePrices([100, 120, 140, 500])).toBe(120);
   });
 });
@@ -119,7 +119,7 @@ describe("priceFromOffers", () => {
       ],
       { EUR: 6, USD: 5 }
     );
-    // (150 + 150) / 2 = 150
+
     expect(priceFromOffers(offers)).toEqual({
       market: "INTERNATIONAL",
       price: "~R$ 150",

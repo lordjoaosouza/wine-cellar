@@ -2,18 +2,19 @@ import { prisma } from "../../lib/prisma.js";
 import { toStoredUploadUrl } from "../../lib/upload-urls.js";
 import { ratingFieldsFromDto, ratingToDto } from "../ratings/ratings.mapper.js";
 import { wineNormalizedKey } from "../wines/wine-normalize.js";
+import { wineSearchText } from "../wines/wine-search-text.js";
 import { wineToDto } from "../wines/wines.mapper.js";
 import type { WineDto } from "../wines/wines.schemas.js";
 import type { AccountArchive } from "./account.schemas.js";
 
 function wineDtoToPrismaData(wine: WineDto) {
-  // priceMarket is derived from offers on read, not stored.
   const { id: _id, priceMarket: _priceMarket, ...rest } = wine;
   return {
     ...rest,
-    // Archives carry absolute photo URLs; this server stores relative ones.
+
     imageUrl: wine.imageUrl && toStoredUploadUrl(wine.imageUrl),
     normalizedKey: wineNormalizedKey(wine.winery, wine.name, wine.vintage),
+    searchText: wineSearchText(wine),
   };
 }
 
@@ -68,7 +69,7 @@ export async function importAccount(
   await prisma.$transaction(async (tx) => {
     for (const wine of archive.wines) {
       const data = wineDtoToPrismaData(wine);
-      // biome-ignore lint/performance/noAwaitInLoops: writes share one interactive transaction connection and must run sequentially
+
       await tx.wine.upsert({
         create: { id: wine.id, ...data },
         update: data,
@@ -89,7 +90,6 @@ export async function importAccount(
     });
 
     for (const item of archive.cellar) {
-      // biome-ignore lint/performance/noAwaitInLoops: writes share one interactive transaction connection and must run sequentially
       await tx.cellarItem.upsert({
         create: {
           quantity: item.quantity,
@@ -103,7 +103,6 @@ export async function importAccount(
     }
 
     for (const item of archive.wishlist) {
-      // biome-ignore lint/performance/noAwaitInLoops: writes share one interactive transaction connection and must run sequentially
       await tx.wishlistItem.upsert({
         create: {
           savedAt: new Date(item.savedAt),
@@ -120,7 +119,7 @@ export async function importAccount(
         ...rating,
         photoUrl: rating.photoUrl && toStoredUploadUrl(rating.photoUrl),
       });
-      // biome-ignore lint/performance/noAwaitInLoops: writes share one interactive transaction connection and must run sequentially
+
       await tx.rating.upsert({
         create: { savedAt: new Date(savedAt), userId, wineId, ...fields },
         update: { savedAt: new Date(savedAt), ...fields },
@@ -129,7 +128,6 @@ export async function importAccount(
     }
 
     for (const view of archive.recentViews) {
-      // biome-ignore lint/performance/noAwaitInLoops: writes share one interactive transaction connection and must run sequentially
       await tx.recentView.upsert({
         create: {
           userId,

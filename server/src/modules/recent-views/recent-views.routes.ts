@@ -1,13 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { wineIdParamsSchema } from "../../lib/common-schemas.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { bearerAuth, registry } from "../../openapi/registry.js";
 import {
-  recentViewSchema,
-  wineIdParamsSchema,
-} from "./recent-views.schemas.js";
+  okResponseSchema,
+  registry,
+  security,
+} from "../../openapi/registry.js";
+import { recentViewSchema } from "./recent-views.schemas.js";
 import {
   clearRecentViews,
   listRecentViews,
@@ -17,9 +19,7 @@ import {
 export const recentViewsRouter = Router();
 recentViewsRouter.use(requireAuth);
 
-const security = [{ [bearerAuth.name]: [] }];
 const listResponse = z.array(recentViewSchema);
-const okResponse = z.object({ ok: z.literal(true) });
 
 registry.registerPath({
   method: "get",
@@ -70,7 +70,7 @@ registry.registerPath({
   path: "/recent-views",
   responses: {
     200: {
-      content: { "application/json": { schema: okResponse } },
+      content: { "application/json": { schema: okResponseSchema } },
       description: "Cleared",
     },
   },

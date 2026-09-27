@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { BrlRates } from "../../lib/exchange-rates.js";
 
-/** One store listing as found on its product page, in the store's own currency. */
 export interface StoreListing {
   amount: number;
   country: string;
@@ -39,11 +38,6 @@ function isValidOffer(offer: StoreListing): boolean {
   );
 }
 
-/**
- * Validates store listings, converts foreign ones to BRL, and keeps one offer
- * per store. Foreign offers are dropped when there is no rate for their
- * currency (e.g. the exchange-rate API has never been reachable).
- */
 export function toWineOffers(
   offers: StoreListing[],
   rates: BrlRates | null
@@ -82,7 +76,6 @@ function median(sorted: number[]): number {
     : (sorted[middle] as number);
 }
 
-/** 1 price: it. 2: their average. 3+: median after dropping outliers (>2x or <0.5x the median). */
 export function aggregatePrices(values: number[]): number | null {
   if (values.length === 0) {
     return null;
@@ -96,7 +89,6 @@ export function aggregatePrices(values: number[]): number | null {
   return median(kept);
 }
 
-/** Nearest 5 below R$ 100, nearest 10 up to R$ 999, nearest 50 above — so repeated searches land on the same number. */
 export function roundBrlPrice(value: number): number {
   let step = 50;
   if (value < 100) {
@@ -111,11 +103,6 @@ export function formatBrlPrice(value: number): string {
   return `~R$ ${String(value).replace(THOUSANDS_PATTERN, ".")}`;
 }
 
-/**
- * Brazilian store prices win whenever there is at least one; only without
- * them does the price fall back to foreign stores converted to BRL. The two
- * are never mixed in one calculation.
- */
 export function priceFromOffers(offers: WineOffer[]): {
   market: PriceMarket | null;
   price: string | null;
@@ -130,7 +117,6 @@ export function priceFromOffers(offers: WineOffer[]): {
   return { market, price: formatBrlPrice(roundBrlPrice(aggregated)) };
 }
 
-/** Reads the `offers` JSON column, dropping anything malformed. */
 export function wineOffersFromJson(value: unknown): WineOffer[] {
   if (!Array.isArray(value)) {
     return [];

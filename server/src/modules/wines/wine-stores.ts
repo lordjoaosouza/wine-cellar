@@ -1,14 +1,10 @@
 export interface Store {
   country: string;
-  /** Registrable domain; subdomains (www., loja.) match too. */
+
   domain: string;
   name: string;
 }
 
-/**
- * Well-known Brazilian wine retailers and importers. Any store whose product
- * page carries a price counts; these are just tried first.
- */
 export const BRAZILIAN_STORES: Store[] = [
   { country: "Brazil", domain: "wine.com.br", name: "Wine" },
   { country: "Brazil", domain: "evino.com.br", name: "Evino" },
@@ -30,7 +26,6 @@ export const BRAZILIAN_STORES: Store[] = [
   { country: "Brazil", domain: "paodeacucar.com", name: "Pão de Açúcar" },
 ];
 
-/** Well-known stores abroad, tried first when no Brazilian store sells the wine. */
 export const INTERNATIONAL_STORES: Store[] = [
   { country: "United States", domain: "wine.com", name: "Wine.com" },
   {
@@ -58,10 +53,6 @@ export const INTERNATIONAL_STORES: Store[] = [
   { country: "Germany", domain: "vinello.de", name: "Vinello" },
 ];
 
-/**
- * Marketplaces and aggregators: never a store (third-party sellers, averages)
- * and not a trustworthy description of the wine either.
- */
 const EXCLUDED_DOMAINS = [
   "mercadolivre.com.br",
   "mercadolibre.com",
@@ -105,7 +96,6 @@ export function knownStoreFor(url: string, stores: Store[]): Store | null {
   return stores.find((store) => matchesDomain(hostname, store.domain)) ?? null;
 }
 
-/** Marketplaces, aggregators and social sites — never used as a source. */
 export function isExcludedUrl(url: string): boolean {
   const hostname = hostnameOf(url);
   return (
@@ -145,7 +135,6 @@ const COUNTRY_BY_CURRENCY: Record<string, string> = {
   ZAR: "South Africa",
 };
 
-/** Where a store sells: its domain, else the currency it prices in. */
 export function storeCountry(url: string, currency: string | null): string {
   const hostname = hostnameOf(url) ?? "";
   const byTld = COUNTRY_BY_TLD.find(([tld]) => hostname.endsWith(tld));
@@ -155,14 +144,12 @@ export function storeCountry(url: string, currency: string | null): string {
   return (currency && COUNTRY_BY_CURRENCY[currency]) ?? "Europe";
 }
 
-/** "www.ciadovinho.com.br" → "ciadovinho.com.br", for stores without og:site_name. */
 export function storeNameFromUrl(url: string): string {
   return (hostnameOf(url) ?? url).replace(WWW_PREFIX_PATTERN, "");
 }
 
 const LOWERCASE_JOINERS = new Set(["a", "da", "das", "de", "do", "dos", "e"]);
 
-/** "EMPÓRIO ITIÊ" → "Empório Itiê", keeping "e", "do", "da"... lowercase. */
 function titleCaseShouting(name: string): string {
   if (name !== name.toUpperCase() || name === name.toLowerCase()) {
     return name;
@@ -178,7 +165,6 @@ function titleCaseShouting(name: string): string {
     .join(" ");
 }
 
-/** "Vida Vino | Vinhos Selecionados e Azeites" → "Vida Vino". */
 export function cleanStoreName(siteName: string): string {
   const [name = siteName] = siteName.split(SITE_NAME_SEPARATOR_PATTERN);
   return titleCaseShouting(name.trim() || siteName.trim());

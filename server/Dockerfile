@@ -1,4 +1,3 @@
-# Build context is the repository root (see docker-compose.yml) so pnpm can resolve the workspace.
 FROM node:22-alpine AS base
 RUN apk add --no-cache openssl && corepack enable
 WORKDIR /repo

@@ -2,15 +2,13 @@ import { Router } from "express";
 import { asyncHandler } from "../../lib/async-handler.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { bearerAuth, registry } from "../../openapi/registry.js";
+import { registry, security } from "../../openapi/registry.js";
 import { tuyaCredentialsInputSchema } from "../users/users.schemas.js";
 import { tuyaReadingSchema } from "./tuya.schemas.js";
 import { readUserCellarSensor, testTuyaCredentials } from "./tuya.service.js";
 
 export const tuyaRouter = Router();
 tuyaRouter.use(requireAuth);
-
-const security = [{ [bearerAuth.name]: [] }];
 
 registry.registerPath({
   method: "get",

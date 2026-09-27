@@ -1,12 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
 
-/**
- * Photos stored on this server are saved in the database as relative paths
- * ("/uploads/<uuid>.jpg") and only made absolute when sent, using the address
- * the client itself called. The same record then works from the phone over
- * Tailscale and from the web app on localhost, and moving the server to a new
- * address never breaks stored photos.
- */
 const UPLOAD_PATH_PATTERN =
   /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 const ABSOLUTE_UPLOAD_URL_PATTERN =
@@ -17,12 +10,10 @@ export function uploadPath(key: string): string {
   return `/uploads/${key}`;
 }
 
-/** An absolute URL to one of this server's uploads → its relative path. */
 export function toStoredUploadUrl(url: string): string {
   return url.replace(ABSOLUTE_UPLOAD_URL_PATTERN, "$1");
 }
 
-/** Copy of `value` with every upload path turned into an absolute URL. */
 export function absolutizeUploadUrls(
   value: unknown,
   origin: string,
@@ -48,7 +39,6 @@ export function absolutizeUploadUrls(
   );
 }
 
-/** Makes upload paths in every JSON response absolute for this client. */
 export function absoluteUploadUrls(
   req: Request,
   res: Response,

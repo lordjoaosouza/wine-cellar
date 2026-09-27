@@ -28,7 +28,6 @@ function candidate(name: string) {
   };
 }
 
-/** Vision verdicts keyed by the (fake) image contents. */
 function verdicts(byImage: Record<string, [boolean, boolean]>) {
   chatJson.mockImplementation(({ images }: { images: string[] }) => {
     const name = Buffer.from(images[0] ?? "", "base64").toString();
@@ -63,12 +62,11 @@ describe("chooseStorePhoto", () => {
       candidate("badges"),
     ]);
     expect(choice.wrongPages).toEqual(["https://store.example/dv-catena"]);
-    // No clean shot, so the correct one with badges is still better than none.
+
     expect(choice.photo?.buffer.toString()).toBe("badges");
   });
 
   it("trusts a label that names the wine over the model's verdict", async () => {
-    // e.g. swayed by medal badges around the bottle
     chatJson.mockResolvedValue({
       cleanShot: false,
       labelReads: "CATENA MALBEC",

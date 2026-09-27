@@ -1,3 +1,5 @@
+import { prepareStorePhotoForVision } from "../../lib/image-prep.js";
+import { throwIfAborted } from "../../lib/job-queue.js";
 import { logger } from "../../lib/logger.js";
 import { chatJson } from "../../lib/ollama.js";
 import { type DownloadedImage, downloadImage } from "../../lib/remote-image.js";
@@ -6,14 +8,17 @@ import { PHOTO_CHECK_PROMPT, PHOTO_CHECK_SCHEMA } from "./wine-prompts.js";
 
 export interface PhotoCandidate {
   imageUrl: string;
-  /** The store page the photo came from, if any. */
   pageUrl: string | null;
 }
 
 export interface PhotoChoice {
   photo: DownloadedImage | null;
-  /** Store pages whose photo shows a different wine — not this wine's listing. */
   wrongPages: string[];
+}
+
+export interface PhotoCheckOptions {
+  maxChecks?: number | undefined;
+  signal?: AbortSignal | undefined;
 }
 
 interface PhotoCheck {
@@ -22,8 +27,7 @@ interface PhotoCheck {
   showsWine: boolean;
 }
 
-// Each check is a vision call (~10s on a laptop), so only the first two.
-const MAX_PHOTO_CHECKS = 2;
+const DEFAULT_MAX_PHOTO_CHECKS = 2;
 const WORD_PATTERN = /[a-z0-9]+/g;
 
 function wordsWithout(text: string, exclude: Set<string>): string {
@@ -33,12 +37,6 @@ function wordsWithout(text: string, exclude: Set<string>): string {
     .join(" ");
 }
 
-/**
- * Whether the label text the model read names exactly this wine, ignoring
- * the producer's words and word order: "Catena Malbec" matches "CATENA
- * MALBEC", but "D.V. Catena Malbec-Malbec" doesn't. A deterministic check on
- * top of the model's own verdict, which can be swayed by badges on a photo.
- */
 export function labelNamesWine(
   labelReads: string,
   wine: { name: string; producer: string | null }
@@ -54,47 +52,50 @@ export function labelNamesWine(
 
 async function checkPhoto(
   wine: { name: string; producer: string | null },
-  image: DownloadedImage
+  image: DownloadedImage,
+  signal: AbortSignal | undefined
 ): Promise<PhotoCheck | null> {
   try {
+    const prepared = await prepareStorePhotoForVision(image.buffer);
     return await chatJson<PhotoCheck>({
-      images: [image.buffer.toString("base64")],
+      images: [prepared.toString("base64")],
       schema: PHOTO_CHECK_SCHEMA,
+      signal,
       system: PHOTO_CHECK_PROMPT,
       user: `WINE: ${wine.name}${wine.producer ? ` by ${wine.producer}` : ""}`,
     });
   } catch (error) {
-    // e.g. an image format the model can't decode — skip this candidate.
+    if (signal?.aborted) {
+      throw error;
+    }
     logger.warn({ err: error }, "photo check failed");
     return null;
   }
 }
 
-/**
- * Picks the wine's photo from store product photos, best stores first: the
- * local vision model confirms each one shows this exact wine. The first clean
- * catalog shot wins; otherwise the first correct photo. Photos of a different
- * wine flag their store page as a wrong match.
- */
 export async function chooseStorePhoto(
   wine: { name: string; producer: string | null },
-  candidates: PhotoCandidate[]
+  candidates: PhotoCandidate[],
+  options: PhotoCheckOptions = {}
 ): Promise<PhotoChoice> {
+  const maxChecks = options.maxChecks ?? DEFAULT_MAX_PHOTO_CHECKS;
   const wrongPages: string[] = [];
   let fallback: DownloadedImage | null = null;
   let checks = 0;
 
   for (const candidate of candidates) {
-    if (checks >= MAX_PHOTO_CHECKS) {
+    if (checks >= maxChecks) {
       break;
     }
-    // biome-ignore lint/performance/noAwaitInLoops: stop at the first good photo
-    const image = await downloadImage(candidate.imageUrl);
+    if (options.signal) {
+      throwIfAborted(options.signal);
+    }
+    const image = await downloadImage(candidate.imageUrl, options.signal);
     if (!image) {
       continue;
     }
     checks += 1;
-    const check = await checkPhoto(wine, image);
+    const check = await checkPhoto(wine, image, options.signal);
     if (!check) {
       continue;
     }

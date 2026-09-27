@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { wineSchema } from "../wines/wines.schemas.js";
 
-export const wineIdParamsSchema = z.object({ wineId: z.string().min(1) });
+import { wineSchema } from "../wines/wines.schemas.js";
 
 export const recentViewSchema = wineSchema.extend({
   viewedAt: z.string(),

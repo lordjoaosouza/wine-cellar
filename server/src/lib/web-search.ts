@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import { withTimeout } from "./abort.js";
 import { logger } from "./logger.js";
 
 export interface WebSearchResult {
@@ -13,14 +14,9 @@ interface SearxngResponse {
   results?: { content?: string; title?: string; url?: string }[];
 }
 
-/**
- * Runs one query against the self-hosted SearXNG instance. Failures are
- * logged and return no results — a search that finds nothing is handled the
- * same way upstream.
- */
 export async function searchWeb(
   query: string,
-  options: { language?: string } = {}
+  options: { language?: string; signal?: AbortSignal } = {}
 ): Promise<WebSearchResult[]> {
   const url = new URL("/search", env.SEARXNG_URL);
   url.searchParams.set("q", query);
@@ -30,7 +26,7 @@ export async function searchWeb(
 
   try {
     const response = await fetch(url, {
-      signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS),
+      signal: withTimeout(options.signal, SEARCH_TIMEOUT_MS),
     });
     if (!response.ok) {
       logger.warn({ query, status: response.status }, "web search failed");
@@ -49,6 +45,9 @@ export async function searchWeb(
         : []
     );
   } catch (error) {
+    if (options.signal?.aborted) {
+      throw error;
+    }
     logger.warn({ err: error, query }, "web search failed");
     return [];
   }

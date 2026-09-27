@@ -1,14 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { wineIdParamsSchema } from "../../lib/common-schemas.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { bearerAuth, registry } from "../../openapi/registry.js";
-import {
-  addToWishlistSchema,
-  wineIdParamsSchema,
-  wishlistItemSchema,
-} from "./wishlist.schemas.js";
+import { registry, security } from "../../openapi/registry.js";
+import { addToWishlistSchema, wishlistItemSchema } from "./wishlist.schemas.js";
 import {
   addToWishlist,
   listWishlist,
@@ -18,7 +15,6 @@ import {
 export const wishlistRouter = Router();
 wishlistRouter.use(requireAuth);
 
-const security = [{ [bearerAuth.name]: [] }];
 const listResponse = z.array(wishlistItemSchema);
 
 registry.registerPath({

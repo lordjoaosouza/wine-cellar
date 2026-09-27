@@ -14,8 +14,6 @@ const CONTENT_TYPES: Record<string, string> = {
   ".webp": "image/webp",
 };
 
-// Keys are always `<uuid><ext>` as minted by uploadImage. Anything else (e.g.
-// "../") is rejected before it ever reaches the filesystem.
 const KEY_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
@@ -39,8 +37,7 @@ export async function uploadImage(
 ): Promise<string> {
   const key = `${randomUUID()}${file.extension}`;
   const target = pathForKey(key);
-  // Write-then-rename so a crash mid-write never leaves a truncated image
-  // behind under a key that's already referenced from the database.
+
   const temporary = `${target}.tmp`;
   await ensureUploadsDirExists();
   await writeFile(temporary, file.buffer);
@@ -62,7 +59,6 @@ export async function getImage(key: string): Promise<StoredImage> {
   };
 }
 
-/** Where a stored image is served, as saved in the database — see upload-urls.ts. */
 export function publicUrlForImage(key: string): string {
   return uploadPath(key);
 }

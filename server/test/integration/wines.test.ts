@@ -47,7 +47,7 @@ describe("wine store offers", () => {
       grapes: ["Malbec"],
       guideScore: 4.1,
       id: "legacy-wine",
-      // Old versions called store photos "GPT" and allowed "MANUAL" uploads.
+
       imageSource: "GPT",
       imageUrl: "https://cdn.example.com/catena.png",
       name: "Catena Malbec",

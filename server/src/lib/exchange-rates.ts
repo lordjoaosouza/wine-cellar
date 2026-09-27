@@ -1,7 +1,5 @@
 import { logger } from "./logger.js";
 
-// Currencies Frankfurter (ECB reference rates) can convert to BRL. Listings
-// from stores abroad in any other currency are skipped.
 export const FOREIGN_CURRENCIES = [
   "USD",
   "EUR",
@@ -24,7 +22,6 @@ const RATES_URL = "https://api.frankfurter.dev/v1/latest?base=BRL";
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
 
-/** How many BRL one unit of each currency costs, e.g. { USD: 5.18 }. */
 export type BrlRates = Record<string, number>;
 
 let cached: { fetchedAt: number; rates: BrlRates } | null = null;
@@ -39,7 +36,7 @@ async function fetchBrlRates(): Promise<BrlRates | null> {
       logger.warn({ status: response.status }, "exchange rates fetch failed");
       return null;
     }
-    // base=BRL gives units of each currency per 1 BRL; invert to BRL per unit.
+
     const body = (await response.json()) as { rates?: Record<string, number> };
     const rates: BrlRates = {};
     for (const [currency, perBrl] of Object.entries(body.rates ?? {})) {
@@ -54,10 +51,6 @@ async function fetchBrlRates(): Promise<BrlRates | null> {
   }
 }
 
-/**
- * Current BRL rates, cached for 12h. Falls back to the last good rates when
- * the API is down, and to null when there has never been a successful fetch.
- */
 export async function getBrlRates(): Promise<BrlRates | null> {
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.rates;

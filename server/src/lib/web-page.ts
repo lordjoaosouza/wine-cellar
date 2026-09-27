@@ -1,3 +1,4 @@
+import { withTimeout } from "./abort.js";
 import { logger } from "./logger.js";
 
 const BROWSER_USER_AGENT =
@@ -6,7 +7,6 @@ const FETCH_TIMEOUT_MS = 12_000;
 const MAX_HTML_BYTES = 2_000_000;
 const MAX_TEXT_CHARS = 6000;
 
-/** A product as a page describes it in structured data (JSON-LD or meta tags). */
 export interface PageProduct {
   availability: string | null;
   currency: string | null;
@@ -18,7 +18,7 @@ export interface PageProduct {
 export interface WebPage {
   images: string[];
   products: PageProduct[];
-  /** The site's own name ("Vinhos e Vinhos"), when the page reveals it. */
+
   siteName: string | null;
   text: string;
   title: string;
@@ -57,7 +57,7 @@ const GENERIC_SITE_NAMES = new Set([
   "loja virtual",
   "página inicial",
 ]);
-/** JSON-LD types whose `name` is the site or business itself. */
+
 const SITE_TYPES = [
   "organization",
   "store",
@@ -79,7 +79,6 @@ const NAMED_ENTITIES: Record<string, string> = {
 };
 
 function firstGroup(pattern: RegExp, text: string): string | null {
-  // First match only (Biome mis-types exec() as never null, hence matchAll).
   for (const match of text.matchAll(new RegExp(pattern, "g"))) {
     return match[1] ?? null;
   }
@@ -97,7 +96,6 @@ export function decodeEntities(text: string): string {
     );
 }
 
-/** Readable text of an HTML page: no scripts, navigation or markup. */
 export function htmlToText(html: string): string {
   return decodeEntities(
     html
@@ -111,7 +109,6 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
-/** "189.90", "189,90", "1.250,00", 189.9 → 189.9 */
 export function parsePrice(value: unknown): number | null {
   if (typeof value === "number") {
     return Number.isFinite(value) && value > 0 ? value : null;
@@ -123,7 +120,6 @@ export function parsePrice(value: unknown): number | null {
   const lastComma = digits.lastIndexOf(",");
   const lastDot = digits.lastIndexOf(".");
   if (lastComma > lastDot) {
-    // Brazilian/European style: dots group thousands, the comma is decimal.
     digits = digits.replaceAll(".", "").replace(",", ".");
   } else {
     digits = digits.replaceAll(",", "");
@@ -213,7 +209,6 @@ function collectJsonLdProducts(value: unknown, into: PageProduct[]): void {
   }
 }
 
-/** Names of the seller and of the site/business, from anywhere in JSON-LD. */
 function collectJsonLdSiteNames(
   value: unknown,
   into: { organizations: string[]; sellers: string[] },
@@ -246,7 +241,6 @@ function collectJsonLdSiteNames(
   }
 }
 
-/** The alt text of the site's logo: <img class="logo" alt="Vinhos e Vinhos">. */
 function logoAltText(html: string): string | null {
   for (const [tag] of html.matchAll(IMG_TAG_PATTERN)) {
     if (!tag.toLowerCase().includes("logo")) {
@@ -265,10 +259,6 @@ function nameWords(text: string): string[] {
   return text.toLowerCase().match(NAME_WORD_PATTERN) ?? [];
 }
 
-/**
- * "Vinho Tinto Catena Malbec - Cia do Vinho" → "Cia do Vinho": the title's
- * last segment, unless it is really part of the product name ("... - Malbec").
- */
 function titleSuffix(title: string): string | null {
   const segments = title.split(TITLE_SEPARATOR_PATTERN);
   const last = segments.at(-1)?.trim();
@@ -309,6 +299,14 @@ function readMetaTags(html: string): Map<string, string> {
   return meta;
 }
 
+function parseJsonLd(json: string): unknown {
+  try {
+    return JSON.parse(json) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 function resolveUrl(candidate: string | null, base: string): string | null {
   if (!candidate) {
     return null;
@@ -320,7 +318,6 @@ function resolveUrl(candidate: string | null, base: string): string | null {
   }
 }
 
-/** Structured product data, page images and readable text from raw HTML. */
 export function parseWebPage(url: string, html: string): WebPage {
   const products: PageProduct[] = [];
   const jsonLdNames = {
@@ -328,12 +325,10 @@ export function parseWebPage(url: string, html: string): WebPage {
     sellers: [] as string[],
   };
   for (const [, json] of html.matchAll(JSON_LD_PATTERN)) {
-    try {
-      const parsed: unknown = JSON.parse(json ?? "");
+    const parsed = parseJsonLd(json ?? "");
+    if (parsed !== undefined) {
       collectJsonLdProducts(parsed, products);
       collectJsonLdSiteNames(parsed, jsonLdNames);
-    } catch {
-      // Malformed JSON-LD is common; the meta tags below are the fallback.
     }
   }
 
@@ -374,8 +369,7 @@ export function parseWebPage(url: string, html: string): WebPage {
   return {
     images: [...new Set(images)],
     products,
-    // Most reliable first: what the site calls itself, who sells the
-    // product, then weaker hints like the logo's alt text or the page title.
+
     siteName:
       [
         meta.get("og:site_name"),
@@ -406,8 +400,10 @@ function decodeBody(bytes: ArrayBuffer, contentType: string): string {
   }
 }
 
-/** Fetches and parses a web page, or returns null if it can't be loaded. */
-export async function fetchWebPage(url: string): Promise<WebPage | null> {
+export async function fetchWebPage(
+  url: string,
+  signal?: AbortSignal
+): Promise<WebPage | null> {
   if (!HTTP_URL_PATTERN.test(url)) {
     return null;
   }
@@ -419,7 +415,7 @@ export async function fetchWebPage(url: string): Promise<WebPage | null> {
         "User-Agent": BROWSER_USER_AGENT,
       },
       redirect: "follow",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: withTimeout(signal, FETCH_TIMEOUT_MS),
     });
     const contentType = response.headers.get("content-type") ?? "";
     if (!(response.ok && contentType.includes("html"))) {
@@ -428,6 +424,9 @@ export async function fetchWebPage(url: string): Promise<WebPage | null> {
     const bytes = (await response.arrayBuffer()).slice(0, MAX_HTML_BYTES);
     return parseWebPage(response.url || url, decodeBody(bytes, contentType));
   } catch (error) {
+    if (signal?.aborted) {
+      throw error;
+    }
     logger.debug({ err: error, url }, "fetchWebPage failed");
     return null;
   }

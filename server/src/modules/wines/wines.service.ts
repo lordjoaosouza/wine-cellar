@@ -1,4 +1,5 @@
 import type { Prisma, Wine } from "../../generated/prisma/client.js";
+import { getSetting } from "../../lib/app-settings.js";
 import { trimCatalogPhoto } from "../../lib/catalog-photo.js";
 import { getBrlRates } from "../../lib/exchange-rates.js";
 import { HttpError } from "../../lib/http-error.js";
@@ -6,31 +7,53 @@ import type { DecodedImage } from "../../lib/image-payload.js";
 import { prisma } from "../../lib/prisma.js";
 import type { DownloadedImage } from "../../lib/remote-image.js";
 import { publicUrlForImage, uploadImage } from "../../lib/storage.js";
-import type { ReportStage } from "./research-jobs.js";
+import { idleContext, type ResearchContext } from "./research-jobs.js";
+import { researchProfile } from "./research-profiles.js";
+import { recallSearch, rememberSearch } from "./search-memo.js";
 import { toWineOffers } from "./wine-pricing.js";
 import {
   type ResearchedWine,
+  type ResearchOptions,
   researchWine,
   researchWineFromPhoto,
   researchWinesByQuery,
 } from "./wine-research.js";
+import { searchTokens } from "./wine-search-text.js";
 import { researchedWineToData, wineToDto } from "./wines.mapper.js";
-import type { WineDto } from "./wines.schemas.js";
+import type { WineDto, WineSearchResponseDto } from "./wines.schemas.js";
 
 const DB_SEARCH_LIMIT = 20;
 
 function searchLocalWines(query: string): Promise<Wine[]> {
+  const tokens = searchTokens(query);
+  if (tokens.length === 0) {
+    return Promise.resolve([]);
+  }
   return prisma.wine.findMany({
     orderBy: { updatedAt: "desc" },
     take: DB_SEARCH_LIMIT,
     where: {
-      OR: [
-        { name: { contains: query, mode: "insensitive" } },
-        { winery: { contains: query, mode: "insensitive" } },
-        { region: { contains: query, mode: "insensitive" } },
-      ],
+      AND: tokens.map((token) => ({ searchText: { contains: token } })),
     },
   });
+}
+
+async function rememberedWines(query: string): Promise<Wine[]> {
+  const ids = await recallSearch(query);
+  if (!ids || ids.length === 0) {
+    return [];
+  }
+  const wines = await prisma.wine.findMany({ where: { id: { in: ids } } });
+  return ids.flatMap((id) => wines.filter((wine) => wine.id === id));
+}
+
+async function researchOptions(
+  context: ResearchContext = idleContext()
+): Promise<ResearchOptions> {
+  return {
+    context,
+    profile: researchProfile(await getSetting("ai.researchProfile")),
+  };
 }
 
 async function toWineData(
@@ -43,17 +66,11 @@ async function toWineData(
   return researchedWineToData(wine, toWineOffers(wine.listings, rates));
 }
 
-/**
- * Stores a photo on this server (never hotlinked, so it survives the store
- * changing its page) and makes it the wine's picture.
- */
 async function savePhoto(
   wine: Wine,
   photo: DownloadedImage,
   imageSource: "WEB" | "LABEL_SCAN"
 ): Promise<Wine> {
-  // Store catalog shots get their white border cropped so the bottle fills
-  // the frame; a scanned label is a real photo and is kept as taken.
   const prepared =
     imageSource === "WEB" ? await trimCatalogPhoto(photo) : photo;
   const imageUrl = publicUrlForImage(await uploadImage(prepared));
@@ -63,10 +80,6 @@ async function savePhoto(
   });
 }
 
-/**
- * Gives a wine without a picture the store photo research verified. Wines
- * that already have one (from the web, a label scan or picked by hand) keep it.
- */
 function attachStorePhoto(
   wine: Wine,
   photo: DownloadedImage | null
@@ -90,32 +103,44 @@ function upsertWines(results: ResearchedWine[]): Promise<Wine[]> {
   );
 }
 
-/** The local catalog only — web research is a separate, slow job. */
 export async function searchWines(
   query: string
-): Promise<{ results: WineDto[]; total: number }> {
-  const results = (await searchLocalWines(query)).map(wineToDto);
-  return { results, total: results.length };
+): Promise<WineSearchResponseDto> {
+  const local = await searchLocalWines(query);
+  if (local.length > 0) {
+    const results = local.map(wineToDto);
+    return { results, source: "catalog", total: results.length };
+  }
+  const remembered = (await rememberedWines(query)).map(wineToDto);
+  return {
+    results: remembered,
+    source: remembered.length > 0 ? "memo" : "none",
+    total: remembered.length,
+  };
 }
 
 export async function researchWines(
   query: string,
-  report: ReportStage
+  context: ResearchContext
 ): Promise<WineDto[]> {
-  const wines = await upsertWines(await researchWinesByQuery(query, report));
+  const wines = await upsertWines(
+    await researchWinesByQuery(query, await researchOptions(context))
+  );
+  await rememberSearch(
+    query,
+    wines.map((wine) => wine.id)
+  );
   return wines.map(wineToDto);
 }
 
-/**
- * Identifies and researches the photographed wine. The label photo becomes
- * the wine's picture only when it still has none after research — a store's
- * catalog shot or a photo picked by hand wins.
- */
 export async function identifyWineFromLabel(
   photo: DecodedImage,
-  report: ReportStage
+  context: ResearchContext
 ): Promise<WineDto[]> {
-  const researched = await researchWineFromPhoto(photo.dataUri, report);
+  const researched = await researchWineFromPhoto(
+    photo.buffer,
+    await researchOptions(context)
+  );
   if (researched.length === 0) {
     return [];
   }
@@ -142,7 +167,7 @@ export async function getWineDetails(id: string): Promise<WineDto> {
 
 export async function refreshWine(
   id: string,
-  report: ReportStage
+  context: ResearchContext
 ): Promise<WineDto> {
   const existing = await findWineOrThrow(id);
   const refined = await researchWine(
@@ -151,7 +176,7 @@ export async function refreshWine(
       producer: existing.winery,
       vintage: existing.vintage,
     },
-    report
+    await researchOptions(context)
   );
 
   if (!refined) {

@@ -1,3 +1,4 @@
+import { withTimeout } from "./abort.js";
 import type { DecodedImage } from "./image-payload.js";
 import { logger } from "./logger.js";
 
@@ -20,12 +21,9 @@ export type DownloadedImage = Pick<
   "buffer" | "extension" | "mimetype"
 >;
 
-/**
- * Downloads a JPEG/PNG/WebP image, or returns null for anything else (HTML
- * error pages, SVG logos, tracking pixels, oversized files).
- */
 export async function downloadImage(
-  url: string
+  url: string,
+  signal?: AbortSignal
 ): Promise<DownloadedImage | null> {
   if (!HTTP_URL_PATTERN.test(url)) {
     return null;
@@ -33,7 +31,7 @@ export async function downloadImage(
   try {
     const response = await fetch(url, {
       headers: { Accept: "image/*", "User-Agent": BROWSER_USER_AGENT },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: withTimeout(signal, FETCH_TIMEOUT_MS),
     });
     const mimetype = (response.headers.get("content-type") ?? "")
       .split(";")[0]
@@ -60,6 +58,9 @@ export async function downloadImage(
         : mimetype) as DecodedImage["mimetype"],
     };
   } catch (error) {
+    if (signal?.aborted) {
+      throw error;
+    }
     logger.debug({ err: error, url }, "downloadImage failed");
     return null;
   }

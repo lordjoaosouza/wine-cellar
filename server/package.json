@@ -19,7 +19,8 @@
     "pretest:integration": "prisma migrate deploy",
     "test:integration": "vitest run test/integration",
     "test:unit": "vitest run test/unit",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",

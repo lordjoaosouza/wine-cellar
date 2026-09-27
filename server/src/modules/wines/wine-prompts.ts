@@ -29,7 +29,6 @@ export const WINE_EXTRACT_PROMPT = readPrompt("wine-extract.md");
 
 const NULLABLE_STRING = { type: ["string", "null"] } as const;
 
-/** Wines the user most likely means, from the query and search results. */
 export const WINE_IDENTITIES_SCHEMA = {
   additionalProperties: false,
   properties: {
@@ -52,7 +51,6 @@ export const WINE_IDENTITIES_SCHEMA = {
   type: "object",
 } as const;
 
-/** One wine's catalog record, written from the fetched pages. */
 export const WINE_RECORD_SCHEMA = {
   additionalProperties: false,
   properties: {
@@ -88,16 +86,16 @@ export const WINE_RECORD_SCHEMA = {
   type: "object",
 } as const;
 
-/** What a label photo shows. */
 export const LABEL_READING_SCHEMA = {
   additionalProperties: false,
   properties: {
+    confidence: { enum: ["high", "low"], type: "string" },
     name: NULLABLE_STRING,
     producer: NULLABLE_STRING,
     readable: { type: "boolean" },
     vintage: NULLABLE_STRING,
   },
-  required: ["readable", "producer", "name", "vintage"],
+  required: ["readable", "producer", "name", "vintage", "confidence"],
   type: "object",
 } as const;
 
@@ -107,9 +105,9 @@ export const LABEL_READING_PROMPT = `You read wine labels from photos taken on a
 - producer: the winery, usually in smaller print ("Bodega Catena Zapata", "Concha y Toro"); null if not shown.
 - vintage: the 4-digit year printed on the label, "NV" for a non-vintage wine, or null if none is visible.
 - Ignore medals, score badges, stickers and anything that is not part of the label.
-- readable: false (and the other fields null) only when the photo does not show a wine label clearly enough to identify anything.`;
+- readable: false (and the other fields null) only when the photo does not show a wine label clearly enough to identify anything.
+- confidence: "high" when the brand and wine name are printed clearly and you are sure of the spelling; "low" when any of them is guessed from a partial, blurred or unusual label.`;
 
-/** Whether a store's product photo really shows the wine, and how clean it is. */
 export const PHOTO_CHECK_SCHEMA = {
   additionalProperties: false,
   properties: {

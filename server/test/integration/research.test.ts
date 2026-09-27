@@ -60,12 +60,11 @@ const CATENA: ResearchedWine = {
 
 async function waitForJob(session: Session, jobId: string) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    // biome-ignore lint/performance/noAwaitInLoops: polling the job until it settles
     const res = await request(app)
       .get(`/wines/research/${jobId}`)
       .set(bearer(session))
       .expect(200);
-    if (res.body.status === "done" || res.body.status === "failed") {
+    if (res.body.status !== "queued" && res.body.status !== "running") {
       return res.body;
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -83,8 +82,8 @@ describe("wine research jobs", () => {
 
   it("researches in the background and stores the wine with its store prices", async () => {
     const session = await loginAs("research@example.com");
-    researchWinesByQuery.mockImplementation((_query, report) => {
-      report("Checking stores for Catena Malbec");
+    researchWinesByQuery.mockImplementation((_query, { context }) => {
+      context.report("Checking stores for Catena Malbec", 0.4);
       return Promise.resolve([CATENA]);
     });
 
@@ -98,9 +97,12 @@ describe("wine research jobs", () => {
     const job = await waitForJob(session, started.body.id);
     expect(researchWinesByQuery).toHaveBeenCalledWith(
       "catena malbek",
-      expect.any(Function)
+      expect.objectContaining({
+        context: expect.objectContaining({ report: expect.any(Function) }),
+        profile: expect.objectContaining({ name: "thorough" }),
+      })
     );
-    expect(job).toMatchObject({ error: null, status: "done" });
+    expect(job).toMatchObject({ error: null, progress: 1, status: "done" });
     expect(job.results).toHaveLength(1);
     expect(job.results[0]).toMatchObject({
       name: "Catena Malbec",
@@ -109,17 +111,47 @@ describe("wine research jobs", () => {
       winery: "Bodega Catena Zapata",
     });
     expect(job.results[0].offers).toHaveLength(2);
-    // A new wine gets the verified store photo, stored on this server.
+
     expect(job.results[0].imageSource).toBe("WEB");
     expect(job.results[0].imageUrl).toMatch(UPLOADED_JPG_PATTERN);
 
-    // The catalog search now finds it without researching again.
     const search = await request(app)
       .get("/wines/search?q=catena")
       .set(bearer(session))
       .expect(200);
-    expect(search.body.total).toBe(1);
+    expect(search.body).toMatchObject({ source: "catalog", total: 1 });
     expect(researchWinesByQuery).toHaveBeenCalledTimes(1);
+
+    const remembered = await request(app)
+      .get("/wines/search?q=catena%20malbek")
+      .set(bearer(session))
+      .expect(200);
+    expect(remembered.body).toMatchObject({ source: "memo", total: 1 });
+    expect(remembered.body.results[0].name).toBe("Catena Malbec");
+  });
+
+  it("cancels a queued or running job", async () => {
+    const session = await loginAs("cancel@example.com");
+    researchWinesByQuery.mockImplementation(
+      (_query, { context }) =>
+        new Promise((_resolve, reject) => {
+          context.signal.addEventListener("abort", () =>
+            reject(context.signal.reason)
+          );
+        })
+    );
+    const started = await request(app)
+      .post("/wines/research")
+      .set(bearer(session))
+      .send({ q: "catena" })
+      .expect(202);
+
+    await request(app)
+      .delete(`/wines/research/${started.body.id}`)
+      .set(bearer(session))
+      .expect(200);
+    const job = await waitForJob(session, started.body.id);
+    expect(job).toMatchObject({ results: null, status: "cancelled" });
   });
 
   it("refreshes an existing wine as a job", async () => {
@@ -223,11 +255,9 @@ describe("wine research jobs", () => {
         .expect(202);
     };
 
-    // A store photo exists: it wins over the scan.
     const withStore = await waitForJob(session, (await scan(CATENA)).body.id);
     expect(withStore.results[0]).toMatchObject({ imageSource: "WEB" });
 
-    // No store photo: the scan becomes the wine's picture.
     const noStore = await waitForJob(
       session,
       (

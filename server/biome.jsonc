@@ -3,5 +3,27 @@
   "extends": ["ultracite/biome/core", "ultracite/biome/vitest"],
   "files": {
     "includes": ["src/**", "test/**", "prisma/**/*.ts", "!src/generated"]
-  }
+  },
+  "linter": {
+    "rules": {
+      "complexity": {
+        "noVoid": "off"
+      },
+      "performance": {
+        "noAwaitInLoops": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/middleware/auth.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNamespace": "off"
+          }
+        }
+      }
+    }
+  ]
 }

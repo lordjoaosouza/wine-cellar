@@ -4,8 +4,12 @@ import { asyncHandler } from "../../lib/async-handler.js";
 import { decodeImage, imageUploadSchema } from "../../lib/image-payload.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { bearerAuth, registry } from "../../openapi/registry.js";
-import { getResearchJob, startResearchJob } from "./research-jobs.js";
+import { jsonResponse, registry, security } from "../../openapi/registry.js";
+import {
+  cancelResearchJob,
+  getResearchJob,
+  startResearchJob,
+} from "./research-jobs.js";
 import {
   researchJobParamsSchema,
   researchJobSchema,
@@ -26,30 +30,23 @@ import {
 export const winesRouter = Router();
 winesRouter.use(requireAuth);
 
-const security = [{ [bearerAuth.name]: [] }];
+const tags = ["Wines"];
 
-const jobStartedResponse = {
-  202: {
-    content: { "application/json": { schema: researchJobSchema } },
-    description:
-      "Research job started — poll GET /wines/research/{jobId} for progress and results",
-  },
-};
+const jobStartedResponse = jsonResponse(
+  202,
+  researchJobSchema,
+  "Research job started; poll GET /wines/research/{jobId} for progress and results"
+);
 
 registry.registerPath({
   method: "get",
   path: "/wines/search",
   request: { query: wineSearchQuerySchema },
-  responses: {
-    200: {
-      content: { "application/json": { schema: wineSearchResponseSchema } },
-      description: "Search results",
-    },
-  },
+  responses: jsonResponse(200, wineSearchResponseSchema, "Search results"),
   security,
   summary:
-    "Search the local wine catalog (fast). Use POST /wines/research to look for new wines on the web.",
-  tags: ["Wines"],
+    "Search the local catalog (fast, accent-insensitive, any word order). Use POST /wines/research to look for new wines on the web.",
+  tags,
 });
 
 winesRouter.get(
@@ -73,7 +70,7 @@ registry.registerPath({
   security,
   summary:
     "Research wines on the web with the local AI model (stores first, then producer pages)",
-  tags: ["Wines"],
+  tags,
 });
 
 winesRouter.post(
@@ -83,7 +80,9 @@ winesRouter.post(
     const { q } = req.body as z.infer<typeof wineResearchBodySchema>;
     res
       .status(202)
-      .json(startResearchJob(req.userId, (report) => researchWines(q, report)));
+      .json(
+        startResearchJob(req.userId, (context) => researchWines(q, context))
+      );
   }
 );
 
@@ -91,15 +90,14 @@ registry.registerPath({
   method: "get",
   path: "/wines/research/{jobId}",
   request: { params: researchJobParamsSchema },
-  responses: {
-    200: {
-      content: { "application/json": { schema: researchJobSchema } },
-      description: "Job progress; results are set once status is done",
-    },
-  },
+  responses: jsonResponse(
+    200,
+    researchJobSchema,
+    "Job progress; results are set once status is done"
+  ),
   security,
   summary: "Poll a research job",
-  tags: ["Wines"],
+  tags,
 });
 
 winesRouter.get(
@@ -107,6 +105,24 @@ winesRouter.get(
   validate({ params: researchJobParamsSchema }),
   (req, res) => {
     res.json(getResearchJob(req.userId, req.params.jobId as string));
+  }
+);
+
+registry.registerPath({
+  method: "delete",
+  path: "/wines/research/{jobId}",
+  request: { params: researchJobParamsSchema },
+  responses: jsonResponse(200, researchJobSchema, "Cancelled job"),
+  security,
+  summary: "Cancel a research job that is queued or running",
+  tags,
+});
+
+winesRouter.delete(
+  "/research/:jobId",
+  validate({ params: researchJobParamsSchema }),
+  (req, res) => {
+    res.json(cancelResearchJob(req.userId, req.params.jobId as string));
   }
 );
 
@@ -120,7 +136,7 @@ registry.registerPath({
   security,
   summary:
     "Identify a wine from a photographed label (local vision model) and research it",
-  tags: ["Wines"],
+  tags,
 });
 
 winesRouter.post(
@@ -131,8 +147,8 @@ winesRouter.post(
     res
       .status(202)
       .json(
-        startResearchJob(req.userId, (report) =>
-          identifyWineFromLabel(photo, report)
+        startResearchJob(req.userId, (context) =>
+          identifyWineFromLabel(photo, context)
         )
       );
   }
@@ -142,15 +158,10 @@ registry.registerPath({
   method: "get",
   path: "/wines/{id}",
   request: { params: wineIdParamsSchema },
-  responses: {
-    200: {
-      content: { "application/json": { schema: wineSchema } },
-      description: "Wine",
-    },
-  },
+  responses: jsonResponse(200, wineSchema, "Wine"),
   security,
   summary: "Get a wine's full details",
-  tags: ["Wines"],
+  tags,
 });
 
 winesRouter.get(
@@ -169,7 +180,7 @@ registry.registerPath({
   security,
   summary:
     "Re-research this exact wine on the web and overwrite its stored data",
-  tags: ["Wines"],
+  tags,
 });
 
 winesRouter.post(
@@ -181,8 +192,8 @@ winesRouter.post(
     res
       .status(202)
       .json(
-        startResearchJob(req.userId, async (report) => [
-          await refreshWine(id, report),
+        startResearchJob(req.userId, async (context) => [
+          await refreshWine(id, context),
         ])
       );
   })

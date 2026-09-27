@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { trimCatalogPhoto } from "../../src/lib/catalog-photo.js";
 import type { DownloadedImage } from "../../src/lib/remote-image.js";
 
-/** A white canvas with a dark "bottle" rectangle in the middle. */
 async function catalogShot(options: {
   background: { r: number; g: number; b: number; alpha: number };
   bottle: { width: number; height: number };
@@ -42,7 +41,6 @@ describe("trimCatalogPhoto", () => {
     const trimmed = await trimCatalogPhoto(photo);
     const { height, width, format } = await sharp(trimmed.buffer).metadata();
 
-    // 500px bottle + 4% (20px) margin on each side.
     expect({ format, height, width }).toEqual({
       format: "jpeg",
       height: 540,

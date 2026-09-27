@@ -82,12 +82,12 @@ model Wine {
   country        String?
   grapes         String[]        @default([])
   price          String?
-  /// Store listings the price was computed from — see wine-pricing.ts.
   offers         Json            @default("[]")
   tastingNotes   String?
   pairings       String[]        @default([])
   imageUrl       String?
   imageSource    WineImageSource?
+  searchText     String          @default("")
   producerProfile String?
   regionProfile  String?
   servingNotes   String?
@@ -103,6 +103,7 @@ model Wine {
   @@index([name])
   @@index([winery])
   @@index([region])
+  @@index([searchText])
   @@map("wines")
 }
 
@@ -165,4 +166,21 @@ model RecentView {
   @@unique([userId, wineId])
   @@index([userId, viewedAt])
   @@map("recent_views")
+}
+
+model SearchQuery {
+  id         String   @id @default(cuid())
+  normalized String   @unique
+  wineIds    String[] @default([])
+  searchedAt DateTime @default(now())
+
+  @@map("search_queries")
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
 }

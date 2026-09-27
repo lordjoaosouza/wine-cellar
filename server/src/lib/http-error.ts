@@ -45,11 +45,22 @@ export class HttpError extends Error {
     return new HttpError(409, message);
   }
 
+  static tooManyRequests(message: string): HttpError {
+    return new HttpError(429, message);
+  }
+
   static badGateway(message: string): HttpError {
     return new HttpError(502, message);
   }
 
-  static serviceUnavailableWithCode(code: string, message: string): HttpError {
-    return new HttpError(503, message, undefined, { code });
+  static serviceUnavailableWithCode(
+    code: string,
+    message: string,
+    cause?: unknown
+  ): HttpError {
+    return new HttpError(503, message, undefined, {
+      code,
+      ...(cause ? { cause } : {}),
+    });
   }
 }

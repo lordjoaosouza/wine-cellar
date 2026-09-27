@@ -1,14 +1,14 @@
 import { Router } from "express";
 import { z } from "zod";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { wineIdParamsSchema } from "../../lib/common-schemas.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { validate } from "../../middleware/validate.js";
-import { bearerAuth, registry } from "../../openapi/registry.js";
+import { registry, security } from "../../openapi/registry.js";
 import {
   addToCellarSchema,
   cellarItemSchema,
   updateCellarQuantitySchema,
-  wineIdParamsSchema,
 } from "./cellar.schemas.js";
 import {
   addToCellar,
@@ -20,7 +20,6 @@ import {
 export const cellarRouter = Router();
 cellarRouter.use(requireAuth);
 
-const security = [{ [bearerAuth.name]: [] }];
 const listResponse = z.array(cellarItemSchema);
 
 registry.registerPath({

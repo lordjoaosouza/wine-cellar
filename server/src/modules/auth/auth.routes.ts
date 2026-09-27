@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { z } from "zod";
 import { asyncHandler } from "../../lib/async-handler.js";
+import { rateLimit } from "../../middleware/rate-limit.js";
 import { validate } from "../../middleware/validate.js";
-import { registry } from "../../openapi/registry.js";
+import { okResponseSchema, registry } from "../../openapi/registry.js";
 import {
   refreshSchema,
   requestCodeSchema,
@@ -18,7 +18,18 @@ import {
 
 export const authRouter = Router();
 
-const okResponse = z.object({ ok: z.literal(true) });
+const codeRequestLimit = rateLimit({
+  limit: 10,
+  message:
+    "Too many login attempts from this address. Try again in a few minutes.",
+  windowMs: 15 * 60 * 1000,
+});
+const verifyLimit = rateLimit({
+  limit: 30,
+  message:
+    "Too many code attempts from this address. Try again in a few minutes.",
+  windowMs: 15 * 60 * 1000,
+});
 
 registry.registerPath({
   method: "post",
@@ -28,7 +39,7 @@ registry.registerPath({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: okResponse } },
+      content: { "application/json": { schema: okResponseSchema } },
       description: "Code sent (if the email is valid)",
     },
   },
@@ -38,6 +49,7 @@ registry.registerPath({
 
 authRouter.post(
   "/request-code",
+  codeRequestLimit,
   validate({ body: requestCodeSchema }),
   asyncHandler(async (req, res) => {
     await requestLoginCode(req.body.email);
@@ -63,6 +75,7 @@ registry.registerPath({
 
 authRouter.post(
   "/verify-code",
+  verifyLimit,
   validate({ body: verifyCodeSchema }),
   asyncHandler(async (req, res) => {
     const tokens = await verifyLoginCode(req.body.email, req.body.code);
@@ -103,7 +116,7 @@ registry.registerPath({
   },
   responses: {
     200: {
-      content: { "application/json": { schema: okResponse } },
+      content: { "application/json": { schema: okResponseSchema } },
       description: "Logged out",
     },
   },

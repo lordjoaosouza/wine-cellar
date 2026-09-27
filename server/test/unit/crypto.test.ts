@@ -18,8 +18,8 @@ describe("encryptSecret / decryptSecret", () => {
     const encrypted = encryptSecret("sk-super-secret-key");
     const [iv, authTag, ciphertext] = encrypted.split(".");
     const bytes = Buffer.from(ciphertext ?? "", "base64");
-    // biome-ignore lint/suspicious/noBitwiseOperators: flipping bits is the point of this tamper test
-    bytes[0] = (bytes[0] ?? 0) ^ 0xff;
+
+    bytes[0] = 255 - (bytes[0] ?? 0);
     const tampered = [iv, authTag, bytes.toString("base64")].join(".");
     expect(() => decryptSecret(tampered)).toThrow();
   });

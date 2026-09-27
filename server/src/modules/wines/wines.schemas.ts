@@ -15,8 +15,6 @@ export const wineSchema = z.object({
   grapes: z.array(z.string()),
   id: z.string(),
   imageSource: z
-    // Archives exported by older versions still say "GPT" (found by GPT) or
-    // "MANUAL" (uploaded by hand, since removed).
     .preprocess(
       (value) => LEGACY_IMAGE_SOURCES[value as string] ?? value,
       z.enum(["WEB", "LABEL_SCAN"])
@@ -24,7 +22,6 @@ export const wineSchema = z.object({
     .nullable(),
   imageUrl: z.string().nullable(),
   name: z.string(),
-  // Defaulted so archives exported before offers existed still import.
   offers: z.array(wineOfferSchema).default([]),
   pairings: z.array(z.string()),
   price: z.string().nullable(),
@@ -56,17 +53,27 @@ export const researchJobSchema = z.object({
     .object({ code: z.string().nullable(), message: z.string() })
     .nullable(),
   id: z.string(),
+  progress: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe("Share of the work done so far, 0 to 1"),
   results: z.array(wineSchema).nullable(),
   stage: z
     .string()
     .describe(
       'Human-readable progress, e.g. "Checking stores for Catena Malbec"'
     ),
-  status: z.enum(["queued", "running", "done", "failed"]),
+  status: z.enum(["queued", "running", "done", "failed", "cancelled"]),
 });
 
 export const wineSearchResponseSchema = z.object({
   results: z.array(wineSchema),
+  source: z
+    .enum(["catalog", "memo", "none"])
+    .describe(
+      "catalog: matched the local catalog; memo: a query researched before; none: nothing local"
+    ),
   total: z.number(),
 });
 
@@ -75,3 +82,4 @@ export const wineIdParamsSchema = z.object({
 });
 
 export type WineDto = z.infer<typeof wineSchema>;
+export type WineSearchResponseDto = z.infer<typeof wineSearchResponseSchema>;

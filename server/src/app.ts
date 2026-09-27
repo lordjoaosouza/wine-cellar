@@ -4,11 +4,13 @@ import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import swaggerUi from "swagger-ui-express";
 import { env } from "./config/env.js";
+import { checkHealth } from "./lib/health.js";
 import { IMAGE_BODY_LIMIT } from "./lib/image-payload.js";
 import { logger } from "./lib/logger.js";
 import { absoluteUploadUrls } from "./lib/upload-urls.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { accountRouter } from "./modules/account/account.routes.js";
+import { aiRouter } from "./modules/ai/ai.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { cellarRouter } from "./modules/cellar/cellar.routes.js";
 import { ratingsRouter } from "./modules/ratings/ratings.routes.js";
@@ -24,8 +26,6 @@ const IMAGE_UPLOAD_PATHS = ["/wines/identify-label", "/ratings/:wineId/photo"];
 
 export function createApp(): Express {
   const app = express();
-  // req.protocol/host (used for photo URLs) must reflect what the client
-  // called, also behind a local reverse proxy such as Tailscale Serve.
   app.set("trust proxy", "loopback, linklocal, uniquelocal");
 
   app.use(helmet());
@@ -38,8 +38,9 @@ export function createApp(): Express {
   app.use(absoluteUploadUrls);
   app.use("/uploads", uploadsRouter);
 
-  app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+  app.get("/health", async (_req, res) => {
+    const report = await checkHealth();
+    res.status(report.checks.database === "ok" ? 200 : 503).json(report);
   });
 
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(buildOpenApiDocument()));
@@ -53,6 +54,7 @@ export function createApp(): Express {
   app.use("/recent-views", recentViewsRouter);
   app.use("/tuya", tuyaRouter);
   app.use("/account", accountRouter);
+  app.use("/ai", aiRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

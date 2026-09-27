@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { wineSchema } from "../wines/wines.schemas.js";
 
 const intensityScoreSchema = z.union([
@@ -21,8 +22,6 @@ export const upsertRatingSchema = z.object({
   score: z.number().min(0).max(10),
   visual: z.string().trim().min(1),
 });
-
-export const wineIdParamsSchema = z.object({ wineId: z.string().min(1) });
 
 export const ratingSchema = wineSchema.extend({
   balance: intensityScoreSchema,

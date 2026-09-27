@@ -3,7 +3,6 @@ import { HttpError } from "../lib/http-error.js";
 import { verifyAccessToken } from "../lib/jwt.js";
 
 declare global {
-  // biome-ignore lint/style/noNamespace: express type augmentation requires the global namespace
   namespace Express {
     interface Request {
       userId: string;

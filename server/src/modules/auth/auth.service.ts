@@ -98,7 +98,6 @@ export async function verifyLoginCode(
   });
 
   for (const candidate of candidates) {
-    // biome-ignore lint/performance/noAwaitInLoops: must short-circuit on the first match, not hash-compare every candidate
     if (await bcrypt.compare(code, candidate.codeHash)) {
       await prisma.loginCode.update({
         data: { consumedAt: new Date() },
