@@ -21,7 +21,6 @@ const tastedDateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-// Breathing room between the top of the scroll area and the focused field.
 const FOCUSED_FIELD_TOP_MARGIN = 12;
 const KEYBOARD_LAYOUT_DELAY_MS = 120;
 
@@ -96,7 +95,6 @@ export function WineRatingModal({
     onClose();
   }, [onRemoved, onClose]);
 
-  /** Scrolls so the field sits at the top of the visible area. */
   const scrollFieldToTop = useCallback((field: View | null) => {
     const content = contentRef.current;
     if (!(field && content)) {
@@ -120,8 +118,7 @@ export function WineRatingModal({
         });
         return;
       }
-      // Moving between fields with the keyboard already up: scroll now.
-      // Otherwise the keyboard effect below scrolls once it has opened.
+
       if (keyboardInset > 0) {
         requestAnimationFrame(() => scrollFieldToTop(field));
       }
@@ -129,9 +126,6 @@ export function WineRatingModal({
     [keyboardInset, scrollFieldToTop]
   );
 
-  // The keyboard just opened (and the content grew by its height, so even the
-  // last field can reach the top): bring the field being typed in up there.
-  // Waits a beat so the extra bottom padding is laid out before scrolling.
   useEffect(() => {
     if (keyboardInset === 0) {
       return;
@@ -257,7 +251,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.white,
     bottom: 0,
     left: 0,
-    position: "fixed",
+    position: "fixed" as unknown as "absolute",
     right: 0,
     top: 0,
     zIndex: 1100,

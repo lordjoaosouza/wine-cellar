@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
+import { RefreshControl, ScrollView } from "react-native-gesture-handler";
 
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { GlassSurface } from "@/components/glass-surface";
@@ -28,7 +28,6 @@ import type { WineRating } from "@/types/wine";
 import { requestHomeSearch } from "@/utils/search-intent";
 import { wineOrigin, wineVintageDetails } from "@/utils/wine-format";
 
-/** Your own tasting photo first; otherwise the wine's photo or illustration. */
 function RatingThumbnail({ rating }: { rating: WineRating }) {
   if (!rating.photoUrl) {
     return <WineThumbnail wine={rating} />;
@@ -106,6 +105,16 @@ export default function RatedScreen() {
   const headerSlotHeight = useTabHeaderSlotHeight();
   const [items, setItems] = useState<WineRating[]>([]);
   const openSwipeRef = useRef<SwipeDeleteExclusiveRef["current"]>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setItems(await getRatings());
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -141,6 +150,13 @@ export default function RatedScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         ref={scrollRef}
+        refreshControl={
+          <RefreshControl
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+            tintColor={Palette.wine}
+          />
+        }
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >

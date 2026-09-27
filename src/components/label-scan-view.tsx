@@ -28,11 +28,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { ChromeCloseButton } from "@/components/chrome-close-button";
 import { Icon } from "@/components/icon";
+import { ProgressBar } from "@/components/progress-bar";
 import { Palette, paragraphLeading, Radii } from "@/constants/theme";
+import { JobCancelledError } from "@/services/jobs";
 import {
   identifyWineFromLabel,
   ResearchUnavailableError,
 } from "@/services/wine-search";
+import { formatPercent } from "@/utils/format-progress";
 import type { HomeSearchPreset } from "@/utils/search-intent";
 
 interface LabelScanViewProps {
@@ -41,7 +44,19 @@ interface LabelScanViewProps {
   visible: boolean;
 }
 
-function IdentifyingOverlay({ stage }: { stage: string | null }) {
+interface ScanProgress {
+  progress: number;
+  stage: string | null;
+}
+
+function IdentifyingOverlay({
+  scan,
+  onCancel,
+}: {
+  scan: ScanProgress;
+  onCancel: () => void;
+}) {
+  const { progress, stage } = scan;
   const pulse = useSharedValue(0);
 
   useEffect(() => {
@@ -69,9 +84,25 @@ function IdentifyingOverlay({ stage }: { stage: string | null }) {
       <Text style={styles.identifyingBody}>
         {stage ? `${stage}…` : "Reading the label and researching the wine."}
       </Text>
+      <View style={styles.identifyingProgress}>
+        <ProgressBar
+          color={Palette.white}
+          progress={progress}
+          trackColor="rgba(255,255,255,0.22)"
+        />
+        <Text style={styles.identifyingPercent}>{formatPercent(progress)}</Text>
+      </View>
       <Text style={styles.identifyingBody}>
         This runs on your server's AI and can take a minute or two.
       </Text>
+      <AnimatedPressable
+        accessibilityRole="button"
+        onPress={onCancel}
+        style={styles.identifyingCancel}
+      >
+        <Icon color={Palette.white} name="stop" size={15} />
+        <Text style={styles.identifyingCancelText}>Stop</Text>
+      </AnimatedPressable>
     </View>
   );
 }
@@ -115,8 +146,9 @@ export function LabelScanView({
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [identifying, setIdentifying] = useState(false);
-  const [stage, setStage] = useState<string | null>(null);
+  const [scan, setScan] = useState<ScanProgress>({ progress: 0, stage: null });
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const frameWidth = Math.min(width * 0.78, 340);
@@ -144,26 +176,46 @@ export function LabelScanView({
 
       setCapturedUri(photo.uri ?? `data:image/jpeg;base64,${photo.base64}`);
       setIdentifying(true);
+      setScan({ progress: 0, stage: null });
+      const controller = new AbortController();
+      abortRef.current = controller;
       const response = await identifyWineFromLabel(
         `data:image/jpeg;base64,${photo.base64}`,
-        setStage
+        {
+          onProgress: ({ progress, stage }) => setScan({ progress, stage }),
+          signal: controller.signal,
+        }
       );
       onIdentified({ label: "Scanned label", results: response.results });
       onClose();
     } catch (error) {
+      if (error instanceof JobCancelledError) {
+        return;
+      }
       console.error("label scan failed", error);
       Alert.alert(
         "Couldn't scan that label",
         error instanceof ResearchUnavailableError
-          ? "The AI model on your server isn't running. Start Ollama and try again."
+          ? "The AI model on your server isn't ready. Check Preferences → AI model."
           : "Something went wrong reading the photo. Try again with better lighting."
       );
     } finally {
+      abortRef.current = null;
       setIdentifying(false);
-      setStage(null);
+      setScan({ progress: 0, stage: null });
       setCapturedUri(null);
     }
   }, [identifying, onIdentified, onClose]);
+
+  const cancelScan = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!visible) {
+      abortRef.current?.abort();
+    }
+  }, [visible]);
 
   const capturePress = useCallback(() => {
     void capture();
@@ -211,7 +263,9 @@ export function LabelScanView({
         </View>
       </View>
 
-      {identifying ? <IdentifyingOverlay stage={stage} /> : null}
+      {identifying ? (
+        <IdentifyingOverlay onCancel={cancelScan} scan={scan} />
+      ) : null}
 
       <View
         pointerEvents="box-none"
@@ -335,6 +389,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     textAlign: "center",
   },
+  identifyingCancel: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 6,
+    minHeight: 40,
+    paddingHorizontal: 14,
+  },
+  identifyingCancelText: {
+    color: Palette.white,
+    fontSize: 13,
+    fontWeight: "700",
+  },
   identifyingOverlay: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",
@@ -342,6 +409,20 @@ const styles = StyleSheet.create({
     gap: 10,
     justifyContent: "center",
     paddingHorizontal: 40,
+  },
+  identifyingPercent: {
+    color: Palette.white,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  identifyingProgress: {
+    alignSelf: "stretch",
+    marginTop: 6,
+    maxWidth: 320,
+    paddingHorizontal: 8,
+    width: "100%",
   },
   identifyingTitle: {
     color: Palette.white,

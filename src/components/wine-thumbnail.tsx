@@ -7,11 +7,6 @@ import { Palette, Shadows } from "@/constants/theme";
 import type { Wine } from "@/types/wine";
 import { FRAMED_IMAGE_SIZE, photoFillsFrame } from "@/utils/wine-format";
 
-/**
- * The small bottle frame used in lists: a store's photo or the wine's
- * illustration at 96% of the frame, or the scanned label filling it whole.
- * Falls back to the illustration when the photo fails to load.
- */
 export function WineThumbnail({
   wine,
 }: {
@@ -40,7 +35,6 @@ export function WineThumbnail({
 }
 
 const styles = StyleSheet.create({
-  // Rounded on the image itself so the stage keeps its shadow on iOS.
   filledPhoto: { borderRadius: 13, height: "100%", width: "100%" },
   framedPhoto: { height: FRAMED_IMAGE_SIZE, width: FRAMED_IMAGE_SIZE },
   stage: {

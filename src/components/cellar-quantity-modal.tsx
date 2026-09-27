@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   webOverlay: {
     bottom: 0,
     left: 0,
-    position: "fixed",
+    position: "fixed" as unknown as "absolute",
     right: 0,
     top: 0,
     zIndex: 1200,

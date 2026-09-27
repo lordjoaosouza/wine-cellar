@@ -1,4 +1,10 @@
 import { ApiError, apiClient } from "@/services/api-client";
+import {
+  type FollowJobOptions,
+  followJob,
+  isUnavailableCode,
+  type JobSnapshot,
+} from "@/services/jobs";
 import { createLocalCollection } from "@/services/local-store";
 import type {
   Wine,
@@ -9,7 +15,6 @@ import type {
 } from "@/types/wine";
 import { toImageDataUri } from "@/utils/image-data-uri";
 
-/** The server's local AI model (Ollama) is down or its model isn't pulled. */
 export class ResearchUnavailableError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -17,27 +22,23 @@ export class ResearchUnavailableError extends Error {
   }
 }
 
-/** Human-readable research progress, e.g. "Checking stores for Catena Malbec". */
-export type ResearchProgress = (stage: string) => void;
+export type ResearchOptions = FollowJobOptions;
 
-interface ResearchJob {
-  error: { code: string | null; message: string } | null;
-  id: string;
+interface ResearchJob extends JobSnapshot {
   results: Wine[] | null;
-  stage: string;
-  status: "queued" | "running" | "done" | "failed";
 }
 
-const POLL_INTERVAL_MS = 2000;
-// A research job runs on a local model and can queue behind others.
-const MAX_WAIT_MS = 15 * 60 * 1000;
+interface CatalogSearchResponse {
+  results: Wine[];
+  source: "catalog" | "memo" | "none";
+  total: number;
+}
 
 const MAX_CACHED_WINES = 300;
 const MAX_RECENT_VIEWS = 8;
 
 const wineCache = createLocalCollection<Wine>({
   getId: (wine) => wine.id,
-  // v3: wines gained `offers`; older cached entries lack it.
   key: "@wine-cellar:wine-cache:v3",
   maxItems: MAX_CACHED_WINES,
 });
@@ -62,90 +63,81 @@ function toSearchResult(wine: Wine): WineSearchResult {
   };
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function researchPath(id: string): string {
+  return `/wines/research/${id}`;
 }
 
-/**
- * Follows a research job the server started until it finishes, reporting its
- * stage along the way. Research runs on the server's local AI model and
- * takes a minute or more per wine.
- */
-async function followResearchJob(
-  started: ResearchJob,
-  onProgress?: ResearchProgress
+async function runResearch(
+  start: () => Promise<ResearchJob>,
+  options: ResearchOptions
 ): Promise<Wine[]> {
-  const deadline = Date.now() + MAX_WAIT_MS;
-  let job = started;
-  while (job.status === "queued" || job.status === "running") {
-    onProgress?.(job.stage);
-    if (Date.now() > deadline) {
-      throw new Error("The search took too long. Try again in a moment.");
-    }
-    // biome-ignore lint/performance/noAwaitInLoops: polling is sequential by nature
-    await wait(POLL_INTERVAL_MS);
-    job = await apiClient.get<ResearchJob>(`/wines/research/${job.id}`);
-  }
-  if (job.status === "failed") {
-    const message = job.error?.message ?? "The search failed.";
-    throw job.error?.code === "llm_unavailable"
-      ? new ResearchUnavailableError(message)
-      : new Error(message);
-  }
-  const results = job.results ?? [];
-  await wineCache.saveMany(results);
-  return results;
-}
-
-async function asResearchError<T>(run: () => Promise<T>): Promise<T> {
   try {
-    return await run();
+    const job = await followJob(await start(), researchPath, options);
+    const results = job.results ?? [];
+    await wineCache.saveMany(results);
+    return results;
   } catch (error) {
-    if (error instanceof ApiError && error.code === "llm_unavailable") {
-      throw new ResearchUnavailableError(error.message, { cause: error });
+    if (isUnavailableCode(error)) {
+      throw new ResearchUnavailableError(
+        error instanceof Error ? error.message : "The AI model is unavailable",
+        { cause: error }
+      );
     }
     throw error;
   }
 }
 
-/** Your catalog first; when nothing there matches, research on the web. */
-export async function searchWines(
-  query: string,
-  onProgress?: ResearchProgress
-): Promise<WineSearchResponse> {
+export interface CatalogSearch extends WineSearchResponse {
+  source: CatalogSearchResponse["source"];
+}
+
+export async function searchCatalog(query: string): Promise<CatalogSearch> {
   const params = new URLSearchParams({ q: query.trim() });
-  const local = await apiClient.get<{ results: Wine[]; total: number }>(
+  const response = await apiClient.get<CatalogSearchResponse>(
     `/wines/search?${params.toString()}`
   );
-  let wines = local.results;
-  if (wines.length > 0) {
-    await wineCache.saveMany(wines);
-  } else {
-    wines = await asResearchError(async () =>
-      followResearchJob(
-        await apiClient.post<ResearchJob>("/wines/research", {
-          q: query.trim(),
-        }),
-        onProgress
-      )
-    );
+  if (response.results.length > 0) {
+    await wineCache.saveMany(response.results);
   }
+  return {
+    results: response.results.map(toSearchResult),
+    source: response.source,
+    total: response.total,
+  };
+}
+
+export async function researchWinesOnWeb(
+  query: string,
+  options: ResearchOptions = {}
+): Promise<WineSearchResponse> {
+  const wines = await runResearch(
+    () => apiClient.post<ResearchJob>("/wines/research", { q: query.trim() }),
+    options
+  );
   return { results: wines.map(toSearchResult), total: wines.length };
 }
 
-export function identifyWineFromLabel(
-  imageUri: string,
-  onProgress?: ResearchProgress
+export async function searchWines(
+  query: string,
+  options: ResearchOptions = {}
 ): Promise<WineSearchResponse> {
-  return asResearchError(async () => {
-    const results = await followResearchJob(
-      await apiClient.post<ResearchJob>("/wines/identify-label", {
-        image: await toImageDataUri(imageUri),
-      }),
-      onProgress
-    );
-    return { results: results.map(toSearchResult), total: results.length };
-  });
+  const local = await searchCatalog(query);
+  if (local.results.length > 0) {
+    return { results: local.results, total: local.total };
+  }
+  return researchWinesOnWeb(query, options);
+}
+
+export async function identifyWineFromLabel(
+  imageUri: string,
+  options: ResearchOptions = {}
+): Promise<WineSearchResponse> {
+  const image = await toImageDataUri(imageUri);
+  const wines = await runResearch(
+    () => apiClient.post<ResearchJob>("/wines/identify-label", { image }),
+    options
+  );
+  return { results: wines.map(toSearchResult), total: wines.length };
 }
 
 export async function getWineDetails(id: string): Promise<WineDetail | null> {
@@ -161,17 +153,15 @@ export async function getWineDetails(id: string): Promise<WineDetail | null> {
   }
 }
 
-export function refreshWine(
+export async function refreshWine(
   wine: { id: string },
-  onProgress?: ResearchProgress
+  options: ResearchOptions = {}
 ): Promise<WineDetail | null> {
-  return asResearchError(async () => {
-    const [updated] = await followResearchJob(
-      await apiClient.post<ResearchJob>(`/wines/${wine.id}/refresh`),
-      onProgress
-    );
-    return updated ?? null;
-  });
+  const [updated] = await runResearch(
+    () => apiClient.post<ResearchJob>(`/wines/${wine.id}/refresh`),
+    options
+  );
+  return updated ?? null;
 }
 
 export async function getRecentViews(): Promise<WineRecentView[]> {

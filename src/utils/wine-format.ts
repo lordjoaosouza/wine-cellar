@@ -50,7 +50,6 @@ export function wineOrigin(wine: Pick<Wine, "winery" | "region" | "country">) {
   );
 }
 
-/** "R$ 189,90" for BRL, "$24.99" / "€25.00" for stores abroad. */
 export function formatOfferAmount(amount: number, currency: string) {
   try {
     return new Intl.NumberFormat(currency === "BRL" ? "pt-BR" : "en-US", {
@@ -62,23 +61,14 @@ export function formatOfferAmount(amount: number, currency: string) {
   }
 }
 
-/**
- * How much of its frame a store's photo or an illustration takes up. A
- * scanned label (see photoFillsFrame) is the one image that fills it whole.
- */
 export const FRAMED_IMAGE_SIZE = "96%";
 
-/**
- * A scanned label is a real photo, so it fills its frame; a store's catalog
- * shot is already cropped to the bottle and is shown whole.
- */
 export function photoFillsFrame(imageSource: Wine["imageSource"]) {
   return imageSource === "LABEL_SCAN";
 }
 
 const STORE_DOMAIN_PATTERN = /^https?:\/\/(?:www\.)?([^/?#]+)/i;
 
-/** "https://www.vinhosevinhos.com/miolo.html" → "vinhosevinhos.com" */
 export function storeDomain(url: string) {
   const [, domain = null] = url.match(STORE_DOMAIN_PATTERN) ?? [];
   return domain;

@@ -128,7 +128,8 @@ const styles = StyleSheet.create({
   },
   overlay: {
     left: 0,
-    position: "absolute",
+    position:
+      Platform.OS === "web" ? ("fixed" as unknown as "absolute") : "absolute",
     right: 0,
     top: 0,
     zIndex: 20,

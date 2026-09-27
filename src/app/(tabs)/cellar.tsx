@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
+import { RefreshControl, ScrollView } from "react-native-gesture-handler";
 
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { CellarClimateCard } from "@/components/cellar-climate-card";
@@ -88,6 +88,16 @@ export default function CellarScreen() {
   const headerSlotHeight = useTabHeaderSlotHeight();
   const [items, setItems] = useState<WineCellarItem[]>([]);
   const openSwipeRef = useRef<SwipeDeleteExclusiveRef["current"]>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setItems(await getCellar());
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
   const bottles = cellarBottleCount(items);
 
   useFocusEffect(
@@ -120,6 +130,13 @@ export default function CellarScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         ref={scrollRef}
+        refreshControl={
+          <RefreshControl
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+            tintColor={Palette.wine}
+          />
+        }
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >

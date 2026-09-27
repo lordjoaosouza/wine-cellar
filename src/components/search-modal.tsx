@@ -26,6 +26,7 @@ import { GlassSurface } from "@/components/glass-surface";
 import { Icon } from "@/components/icon";
 import { LabelScanModal } from "@/components/label-scan-modal";
 import { ModalShell } from "@/components/modal-shell";
+import { ProgressBar } from "@/components/progress-bar";
 import { WineCard } from "@/components/wine-card";
 import {
   Fonts,
@@ -34,8 +35,15 @@ import {
   Radii,
   Shadows,
 } from "@/constants/theme";
-import { ResearchUnavailableError, searchWines } from "@/services/wine-search";
+import { JobCancelledError } from "@/services/jobs";
+import {
+  ResearchUnavailableError,
+  researchWinesOnWeb,
+  searchCatalog,
+} from "@/services/wine-search";
 import type { WineSearchResult } from "@/types/wine";
+import { formatPercent } from "@/utils/format-progress";
+import { haptics } from "@/utils/haptics";
 import {
   setHomeSearchOpen,
   subscribeHomeSearchOpen,
@@ -49,6 +57,13 @@ const SEARCH_PHASES = [
   "Asking the sommelier…",
 ];
 const PHASE_INTERVAL_MS = 1800;
+
+type ResultSource = "catalog" | "memo" | "web";
+
+interface ResearchState {
+  progress: number;
+  stage: string | null;
+}
 
 function useShimmer(delay = 0) {
   const pulse = useSharedValue(0);
@@ -82,7 +97,14 @@ function SkeletonCard({ delay }: { delay: number }) {
   );
 }
 
-function SearchingState({ stage }: { stage: string | null }) {
+function SearchingState({
+  research,
+  onCancel,
+}: {
+  research: ResearchState | null;
+  onCancel: () => void;
+}) {
+  const stage = research?.stage ?? null;
   const [phaseIndex, setPhaseIndex] = useState(0);
   const iconPulse = useSharedValue(0);
 
@@ -119,11 +141,28 @@ function SearchingState({ stage }: { stage: string | null }) {
         <Text style={styles.stateBody}>
           {stage ? `${stage}…` : SEARCH_PHASES[phaseIndex]}
         </Text>
-        {stage ? (
-          <Text style={styles.stateHint}>
-            New wines are researched on the web by your server's AI — this can
-            take a minute or two per wine.
-          </Text>
+        {research ? (
+          <View style={styles.progressBlock}>
+            <View style={styles.progressRow}>
+              <Text style={styles.progressLabel}>Researching on the web</Text>
+              <Text style={styles.progressPercent}>
+                {formatPercent(research.progress)}
+              </Text>
+            </View>
+            <ProgressBar progress={research.progress} />
+            <Text style={styles.stateHint}>
+              Your server's AI reads store and producer pages for each wine. A
+              minute or two per wine is normal.
+            </Text>
+            <AnimatedPressable
+              accessibilityRole="button"
+              onPress={onCancel}
+              style={styles.cancelButton}
+            >
+              <Icon color={Palette.wine} name="stop" size={15} />
+              <Text style={styles.cancelText}>Stop searching</Text>
+            </AnimatedPressable>
+          </View>
         ) : null}
       </View>
       <View style={styles.skeletonList}>
@@ -146,6 +185,80 @@ function SearchResultCard({
   return <WineCard fullWidth onPress={handlePress} wine={wine} />;
 }
 
+function SearchOutcome({
+  results,
+  source,
+  searchedQuery,
+  feedback,
+  onOpen,
+  onSearchWeb,
+}: {
+  results: WineSearchResult[];
+  source: ResultSource;
+  searchedQuery: string;
+  feedback: string | null;
+  onOpen: (wine: WineSearchResult) => void;
+  onSearchWeb: () => void;
+}) {
+  const canSearchWeb = source !== "web" && searchedQuery.length > 0;
+  if (results.length === 0) {
+    return (
+      <View style={styles.state}>
+        <Icon color={Palette.placeholderDark} name="search" size={24} />
+        <Text style={styles.stateTitle}>
+          {feedback ? "Nothing to show" : "No wines found"}
+        </Text>
+        <Text style={styles.stateBody}>
+          {feedback ??
+            "Try a producer, region, or the wine name without its vintage."}
+        </Text>
+        {canSearchWeb ? (
+          <AnimatedPressable accessibilityRole="button" onPress={onSearchWeb}>
+            <GlassSurface
+              isInteractive
+              style={styles.retryButton}
+              tintColor={Palette.wine}
+            >
+              <Icon color={Palette.white} name="globe" size={16} />
+              <Text style={styles.retryText}>Search the web</Text>
+            </GlassSurface>
+          </AnimatedPressable>
+        ) : null}
+      </View>
+    );
+  }
+  const sourceLabel = {
+    catalog: " in your catalog",
+    memo: " from an earlier search",
+    web: " from the web",
+  }[source];
+  return (
+    <View style={styles.list}>
+      <Text style={styles.count}>
+        {results.length} {results.length === 1 ? "result" : "results"}
+        {sourceLabel}
+      </Text>
+      {results.map((wine) => (
+        <SearchResultCard key={wine.id} onOpen={onOpen} wine={wine} />
+      ))}
+      {canSearchWeb ? (
+        <AnimatedPressable accessibilityRole="button" onPress={onSearchWeb}>
+          <GlassSurface isInteractive style={styles.webButton}>
+            <Icon color={Palette.wine} name="globe" size={18} />
+            <View style={styles.webButtonCopy}>
+              <Text style={styles.webButtonTitle}>Search the web for more</Text>
+              <Text style={styles.webButtonHint}>
+                Ask your server's AI to look for other matches.
+              </Text>
+            </View>
+            <Icon color={Palette.muted} name="chevronRight" size={16} />
+          </GlassSurface>
+        </AnimatedPressable>
+      ) : null}
+    </View>
+  );
+}
+
 function SearchModal({
   visible,
   onClose,
@@ -160,17 +273,30 @@ function SearchModal({
   const [results, setResults] = useState<WineSearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState<string | null>(null);
+  const [research, setResearch] = useState<ResearchState | null>(null);
+  const [source, setSource] = useState<ResultSource>("catalog");
+  const [searchedQuery, setSearchedQuery] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [scanOpen, setScanOpen] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const cancelResearch = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
 
   const reset = useCallback(() => {
+    cancelResearch();
+    requestIdRef.current += 1;
     setQuery("");
     setResults([]);
     setHasSearched(false);
     setLoading(false);
+    setResearch(null);
+    setSource("catalog");
+    setSearchedQuery("");
     setFeedback(null);
-  }, []);
+  }, [cancelResearch]);
 
   useEffect(() => {
     if (!visible) {
@@ -183,6 +309,7 @@ function SearchModal({
     if (preset) {
       setQuery(preset.label);
       setResults(preset.results);
+      setSource("web");
       setHasSearched(true);
       setFeedback(
         preset.results.length === 0
@@ -196,51 +323,119 @@ function SearchModal({
     return () => clearTimeout(timer);
   }, [reset, visible]);
 
-  const runSearch = useCallback(async (value: string) => {
-    const trimmed = value.trim();
-    if (trimmed.length < MIN_QUERY_LENGTH) {
-      setFeedback(`Enter at least ${MIN_QUERY_LENGTH} characters to search.`);
+  const researchOnWeb = useCallback(
+    async (trimmed: string, requestId: number) => {
+      cancelResearch();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setResearch({ progress: 0, stage: null });
+      try {
+        const response = await researchWinesOnWeb(trimmed, {
+          onProgress: ({ progress, stage }) => {
+            if (requestIdRef.current === requestId) {
+              setResearch({ progress, stage });
+            }
+          },
+          signal: controller.signal,
+        });
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+        setResults(response.results);
+        setSource("web");
+        setHasSearched(true);
+        if (response.results.length > 0) {
+          haptics.success();
+        }
+      } catch (error) {
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+        setResults([]);
+        setHasSearched(true);
+        if (error instanceof JobCancelledError) {
+          setFeedback("Search stopped.");
+        } else if (error instanceof ResearchUnavailableError) {
+          setFeedback(
+            "The AI model on your server isn't ready. Check Preferences → AI model."
+          );
+        } else {
+          setFeedback(
+            "Couldn't reach the sommelier — check your connection and try again."
+          );
+        }
+      } finally {
+        if (requestIdRef.current === requestId) {
+          setLoading(false);
+          setResearch(null);
+          abortRef.current = null;
+        }
+      }
+    },
+    [cancelResearch]
+  );
+
+  const runSearch = useCallback(
+    async (value: string) => {
+      const trimmed = value.trim();
+      if (trimmed.length < MIN_QUERY_LENGTH) {
+        setFeedback(`Enter at least ${MIN_QUERY_LENGTH} characters to search.`);
+        return;
+      }
+
+      cancelResearch();
+      requestIdRef.current += 1;
+      const requestId = requestIdRef.current;
+      setLoading(true);
+      setResearch(null);
+      setFeedback(null);
+      setSearchedQuery(trimmed);
+      try {
+        const local = await searchCatalog(trimmed);
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+        if (local.results.length > 0) {
+          setResults(local.results);
+          setSource(local.source === "memo" ? "memo" : "catalog");
+          setHasSearched(true);
+          setLoading(false);
+          return;
+        }
+        await researchOnWeb(trimmed, requestId);
+      } catch (error) {
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+        setResults([]);
+        setHasSearched(true);
+        setLoading(false);
+        setFeedback(
+          error instanceof ResearchUnavailableError
+            ? "The AI model on your server isn't ready. Check Preferences → AI model."
+            : "Couldn't reach your server — check your connection and try again."
+        );
+      }
+    },
+    [cancelResearch, researchOnWeb]
+  );
+
+  const handleSearchWeb = useCallback(() => {
+    if (!searchedQuery || loading) {
       return;
     }
-
+    haptics.tap();
     requestIdRef.current += 1;
-    const requestId = requestIdRef.current;
     setLoading(true);
-    setStage(null);
     setFeedback(null);
-    try {
-      const response = await searchWines(trimmed, (next) => {
-        if (requestIdRef.current === requestId) {
-          setStage(next);
-        }
-      });
-      if (requestIdRef.current !== requestId) {
-        return;
-      }
-      setResults(response.results);
-      setHasSearched(true);
-    } catch (error) {
-      if (requestIdRef.current !== requestId) {
-        return;
-      }
-      setResults([]);
-      setHasSearched(true);
-      setFeedback(
-        error instanceof ResearchUnavailableError
-          ? "The AI model on your server isn't running. Start Ollama and try again."
-          : "Couldn't reach the sommelier — check your connection and try again."
-      );
-    } finally {
-      if (requestIdRef.current === requestId) {
-        setLoading(false);
-      }
-    }
-  }, []);
+    void researchOnWeb(searchedQuery, requestIdRef.current);
+  }, [loading, researchOnWeb, searchedQuery]);
 
   const handleScanIdentified = useCallback(
     (preset: { label: string; results: WineSearchResult[] }) => {
       setQuery(preset.label);
       setResults(preset.results);
+      setSource("web");
       setHasSearched(true);
       setFeedback(
         preset.results.length === 0
@@ -356,33 +551,23 @@ function SearchModal({
             keyboardShouldPersistTaps="handled"
             style={styles.results}
           >
-            {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
-
-            {loading ? <SearchingState stage={stage} /> : null}
-
-            {!loading && hasSearched && results.length > 0 ? (
-              <View style={styles.list}>
-                <Text style={styles.count}>
-                  {results.length} {results.length === 1 ? "result" : "results"}
-                </Text>
-                {results.map((wine) => (
-                  <SearchResultCard
-                    key={wine.id}
-                    onOpen={handleOpenWine}
-                    wine={wine}
-                  />
-                ))}
-              </View>
+            {feedback && !hasSearched ? (
+              <Text style={styles.feedback}>{feedback}</Text>
             ) : null}
 
-            {!loading && hasSearched && results.length === 0 && !feedback ? (
-              <View style={styles.state}>
-                <Icon color={Palette.placeholderDark} name="search" size={24} />
-                <Text style={styles.stateTitle}>No wines found</Text>
-                <Text style={styles.stateBody}>
-                  Try a producer, region, or the wine name without its vintage.
-                </Text>
-              </View>
+            {loading ? (
+              <SearchingState onCancel={cancelResearch} research={research} />
+            ) : null}
+
+            {!loading && hasSearched ? (
+              <SearchOutcome
+                feedback={feedback}
+                onOpen={handleOpenWine}
+                onSearchWeb={handleSearchWeb}
+                results={results}
+                searchedQuery={searchedQuery}
+                source={source}
+              />
             ) : null}
 
             {loading || hasSearched || feedback ? null : (
@@ -441,6 +626,16 @@ const styles = StyleSheet.create({
     width: 40,
     ...Shadows.button,
   },
+  cancelButton: {
+    alignItems: "center",
+    alignSelf: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 14,
+    minHeight: 40,
+    paddingHorizontal: 12,
+  },
+  cancelText: { color: Palette.wine, fontSize: 13, fontWeight: "700" },
   clear: {
     alignItems: "center",
     backgroundColor: Palette.placeholderDark,
@@ -490,8 +685,32 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   list: { gap: 10 },
+  progressBlock: {
+    alignSelf: "stretch",
+    marginTop: 16,
+    maxWidth: 420,
+    width: "100%",
+  },
+  progressLabel: { color: Palette.ink, fontSize: 12, fontWeight: "700" },
+  progressPercent: { color: Palette.wine, fontSize: 12, fontWeight: "800" },
+  progressRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
   results: { flex: 1 },
   resultsContent: { gap: 12, paddingBottom: 40, paddingHorizontal: 24 },
+  retryButton: {
+    alignItems: "center",
+    borderRadius: Radii.pill,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 14,
+    minHeight: 44,
+    paddingHorizontal: 18,
+  },
+  retryText: { color: Palette.white, fontSize: 13, fontWeight: "700" },
   safe: { flex: 1 },
   screen: { backgroundColor: Palette.white, flex: 1 },
   searchingHeader: {
@@ -561,6 +780,18 @@ const styles = StyleSheet.create({
     gap: 16,
     justifyContent: "space-between",
   },
+  webButton: {
+    alignItems: "center",
+    borderRadius: 22,
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 6,
+    minHeight: 64,
+    paddingHorizontal: 18,
+  },
+  webButtonCopy: { flex: 1 },
+  webButtonHint: { color: Palette.muted, fontSize: 12, marginTop: 2 },
+  webButtonTitle: { color: Palette.ink, fontSize: 14, fontWeight: "700" },
   webOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: Palette.white,

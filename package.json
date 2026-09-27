@@ -9,7 +9,11 @@
     "ios": "expo run:ios",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
+    "screenshots": "node scripts/screenshots/capture.mjs",
     "start": "expo start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -51,7 +55,9 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
     "@types/react": "~19.2.4",
+    "playwright": "^1.63.0",
     "typescript": "~6.0.3",
-    "ultracite": "^7.12.0"
+    "ultracite": "^7.12.0",
+    "vitest": "^5.0.1"
   }
 }

@@ -19,7 +19,6 @@ const ILLUSTRATIONS: Record<string, ImageSource> = {
   "sweet-white": require("../assets/wine-illustrations/sweet-white.png"),
 };
 
-/** The illustration for the wine's style, at 96% of its frame. */
 export function WineIllustration({ type }: { type: string | null }) {
   const source = ILLUSTRATIONS[wineTypeSlug(type)] ?? ILLUSTRATIONS["dry-red"];
 

@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
+import { RefreshControl, ScrollView } from "react-native-gesture-handler";
 
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { GlassSurface } from "@/components/glass-surface";
@@ -80,6 +80,16 @@ export default function WishlistScreen() {
   const headerSlotHeight = useTabHeaderSlotHeight();
   const [items, setItems] = useState<WineWishlistItem[]>([]);
   const openSwipeRef = useRef<SwipeDeleteExclusiveRef["current"]>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setItems(await getWishlist());
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -115,6 +125,13 @@ export default function WishlistScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         ref={scrollRef}
+        refreshControl={
+          <RefreshControl
+            onRefresh={handleRefresh}
+            refreshing={refreshing}
+            tintColor={Palette.wine}
+          />
+        }
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >

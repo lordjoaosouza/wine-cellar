@@ -21,6 +21,7 @@ import { ApiError } from "@/services/api-client";
 import { haptics } from "@/utils/haptics";
 
 const CODE_LENGTH = 6;
+const CODE_SLOTS = ["first", "second", "third", "fourth", "fifth", "sixth"];
 const NON_DIGIT_PATTERN = /\D/g;
 
 function CodeInput({
@@ -54,15 +55,12 @@ function CodeInput({
         onPress={focusInput}
         style={styles.codeBoxes}
       >
-        {Array.from({ length: CODE_LENGTH }, (_, index) => {
+        {CODE_SLOTS.map((slot, index) => {
           const digit = value[index];
           const isActive = focused && index === value.length;
           return (
             <View
-              key={`code-box-${
-                // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length digit slots, never reordered
-                index
-              }`}
+              key={slot}
               style={[
                 styles.codeBox,
                 (digit || isActive) && styles.codeBoxFilled,

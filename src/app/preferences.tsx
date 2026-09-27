@@ -1,4 +1,4 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -26,6 +26,7 @@ import { useFocusScale } from "@/hooks/use-focus-scale";
 import { useScrollToTopOnNavigate } from "@/hooks/use-scroll-to-top";
 import { useUserProfile } from "@/hooks/use-user-profile";
 import { exportAccountArchive } from "@/services/account";
+import { getAiStatus } from "@/services/ai-settings";
 import { getApiBaseUrl } from "@/services/api-config";
 import { logout } from "@/services/auth";
 import { getUserProfile } from "@/services/user-profile";
@@ -40,6 +41,7 @@ export default function PreferencesScreen() {
   const [importOpen, setImportOpen] = useState(false);
   const [serverSettingsOpen, setServerSettingsOpen] = useState(false);
   const [apiHost, setApiHost] = useState("");
+  const [aiModel, setAiModel] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const nameFocus = useFocusScale();
 
@@ -66,6 +68,29 @@ export default function PreferencesScreen() {
       active = false;
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void getAiStatus()
+        .then((status) => {
+          if (active) {
+            const current = status.models.find((model) => model.active);
+            setAiModel(
+              `${current?.label ?? status.activeModel}${status.ollama.reachable ? "" : " · offline"}`
+            );
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setAiModel("Server unreachable");
+          }
+        });
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const goBack = () => {
     if (router.canGoBack()) {
@@ -146,6 +171,7 @@ export default function PreferencesScreen() {
     () => router.push("/tuya-connect"),
     [router]
   );
+  const goToAiModel = useCallback(() => router.push("/ai-model"), [router]);
 
   return (
     <ScreenShell>
@@ -275,6 +301,24 @@ export default function PreferencesScreen() {
                     <Text style={styles.connectionLabel}>API SERVER</Text>
                     <Text numberOfLines={1} style={styles.connectionValue}>
                       {apiHost || "Not set"}
+                    </Text>
+                  </View>
+                  <Icon color={Palette.muted} name="chevronRight" size={18} />
+                </GlassSurface>
+              </AnimatedPressable>
+
+              <AnimatedPressable
+                accessibilityRole="button"
+                onPress={goToAiModel}
+              >
+                <GlassSurface isInteractive style={styles.connectionRow}>
+                  <View style={styles.connectionIcon}>
+                    <Icon color={Palette.wine} name="chip" size={19} />
+                  </View>
+                  <View style={styles.connectionCopy}>
+                    <Text style={styles.connectionLabel}>AI MODEL</Text>
+                    <Text numberOfLines={1} style={styles.connectionValue}>
+                      {aiModel ?? "Checking…"}
                     </Text>
                   </View>
                   <Icon color={Palette.muted} name="chevronRight" size={18} />

@@ -2,14 +2,23 @@
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "extends": ["ultracite/biome/core", "ultracite/biome/react"],
   "files": {
-    "includes": ["src/**", "*.ts", "*.js", "!server", "!ios", "!android"]
+    "includes": [
+      "src/**",
+      "scripts/**",
+      "*.ts",
+      "*.js",
+      "!server",
+      "!ios",
+      "!android"
+    ]
   },
   "linter": {
     "rules": {
       "complexity": {
-        // This codebase's convention for a deliberately-unawaited promise is `void somePromise()`
-        // (screens fire-and-forget saves/analytics without blocking the UI thread on them).
         "noVoid": "off"
+      },
+      "performance": {
+        "noAwaitInLoops": "off"
       }
     }
   }

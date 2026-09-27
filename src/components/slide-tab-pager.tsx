@@ -1,9 +1,10 @@
 import { Navigator, usePathname } from "expo-router";
 import { TabContext } from "expo-router/ui";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
+  type LayoutChangeEvent,
   Platform,
   StyleSheet,
   useWindowDimensions,
@@ -74,9 +75,18 @@ export function SlideTabPager() {
     lastTabIndex.current = pathIndex;
   }
   const activeIndex = lastTabIndex.current;
-  const { width } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+  const width = measuredWidth ?? windowWidth;
   const translateX = useRef(new Animated.Value(-activeIndex * width)).current;
   const previousWidth = useRef(width);
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    if (next > 0) {
+      setMeasuredWidth(next);
+    }
+  }, []);
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof window === "undefined") {
@@ -112,7 +122,7 @@ export function SlideTabPager() {
   }, [activeIndex, translateX, width]);
 
   return (
-    <View style={styles.viewport}>
+    <View onLayout={handleLayout} style={styles.viewport}>
       <Animated.View
         style={[
           styles.track,

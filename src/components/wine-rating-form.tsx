@@ -193,7 +193,6 @@ function ScaleFieldRow({
   return <ScaleRow label={field.label} onChange={handleChange} value={value} />;
 }
 
-/** Called with the field's container so the parent can scroll it into view. */
 type FieldFocusHandler = (field: View | null) => void;
 
 function NoteField({
@@ -253,7 +252,7 @@ export function WineRatingForm({
   rating: WineRating | null;
   onSaved: (rating: WineRating) => void;
   onRemoved?: () => void;
-  /** Lets the screen scroll the focused field above the keyboard. */
+
   onFieldFocus?: FieldFocusHandler;
   embedded?: boolean;
 }) {
@@ -276,7 +275,7 @@ export function WineRatingForm({
   const update = useCallback(
     <K extends keyof Draft>(key: K, value: Draft[K]) => {
       setDraft((current) => ({ ...current, [key]: value }));
-      // Typing into a flagged field clears its message right away.
+
       setFieldErrors((current) => {
         if (!(key in current)) {
           return current;

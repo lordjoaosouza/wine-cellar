@@ -47,6 +47,7 @@ import {
 } from "@/services/wine-search";
 import { isOnWishlist, toggleWishlist } from "@/services/wine-wishlist";
 import type { WineDetail, WineOffer, WineRating } from "@/types/wine";
+import { formatPercent } from "@/utils/format-progress";
 import { haptics } from "@/utils/haptics";
 import {
   FRAMED_IMAGE_SIZE,
@@ -574,7 +575,10 @@ export default function WineDetailScreen() {
   const [cellarOpen, setCellarOpen] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshStage, setRefreshStage] = useState<string | null>(null);
+  const [refreshStage, setRefreshStage] = useState<{
+    progress: number;
+    stage: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -632,7 +636,9 @@ export default function WineDetailScreen() {
     haptics.tap();
     setRefreshing(true);
     try {
-      const updated = await refreshWine(detail, setRefreshStage);
+      const updated = await refreshWine(detail, {
+        onProgress: setRefreshStage,
+      });
       if (!updated) {
         Alert.alert(
           "Couldn't refresh",
@@ -647,7 +653,7 @@ export default function WineDetailScreen() {
       Alert.alert(
         "Couldn't refresh",
         refreshError instanceof ResearchUnavailableError
-          ? "The AI model on your server isn't running. Start Ollama and try again."
+          ? "The AI model on your server isn't ready. Check Preferences → AI model."
           : "Check your connection and try again."
       );
     } finally {
@@ -735,7 +741,7 @@ export default function WineDetailScreen() {
 
             {refreshing && refreshStage ? (
               <Text numberOfLines={1} style={styles.refreshStage}>
-                {refreshStage}…
+                {`${refreshStage.stage}… ${formatPercent(refreshStage.progress)}`}
               </Text>
             ) : null}
 
@@ -913,7 +919,7 @@ const styles = StyleSheet.create({
   heroContent: { alignItems: "stretch", flex: 1, justifyContent: "center" },
   heroGrapes: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
   labelImage: { height: FRAMED_IMAGE_SIZE, width: FRAMED_IMAGE_SIZE },
-  // Rounded on the image itself so the frame keeps its shadow on iOS.
+
   labelImageFilled: { borderRadius: 24, height: "100%", width: "100%" },
   labelImageFrame: {
     alignItems: "center",

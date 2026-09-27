@@ -56,3 +56,4 @@ yarn.lock
 # logs and coverage
 *.log
 coverage/
+.expo-web-dist/

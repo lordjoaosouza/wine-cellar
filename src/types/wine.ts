@@ -1,7 +1,5 @@
-/** WEB: a store's catalog photo; LABEL_SCAN: the photo taken to identify it. */
 export type WineImageSource = "WEB" | "LABEL_SCAN";
 
-/** A store listing the price was computed from, in the store's own currency. */
 export interface WineOffer {
   amount: number;
   amountBrl: number;
@@ -11,7 +9,6 @@ export interface WineOffer {
   url: string;
 }
 
-/** BR = Brazilian stores; INTERNATIONAL = stores abroad, converted to BRL. */
 export type WinePriceMarket = "BR" | "INTERNATIONAL";
 
 export interface Wine {

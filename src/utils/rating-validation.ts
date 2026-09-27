@@ -13,11 +13,6 @@ function requiredNote(message: string) {
   return z.string().trim().min(1, message);
 }
 
-/**
- * The tasting form as typed, turned into what the API accepts. Mirrors the
- * server's upsertRatingSchema so a draft that passes here saves there, with
- * messages written for the person filling the form.
- */
 export const ratingFormSchema = z.object({
   balance: intensitySchema,
   complexity: intensitySchema,
@@ -47,7 +42,6 @@ export type RatingFormValues = z.output<typeof ratingFormSchema>;
 export type RatingFormField = keyof RatingFormInput;
 export type RatingFormErrors = Partial<Record<RatingFormField, string>>;
 
-/** Either the values to save, or one message per field that needs attention. */
 export function validateRatingForm(
   input: RatingFormInput
 ):

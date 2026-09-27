@@ -7,9 +7,7 @@ import {
 } from "expo-haptics";
 
 function fire(action: () => Promise<void>) {
-  void action().catch(() => {
-    // ignore
-  });
+  void action().catch(() => undefined);
 }
 
 export const haptics = {

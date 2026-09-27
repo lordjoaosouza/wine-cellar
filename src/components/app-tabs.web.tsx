@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     marginLeft: -164,
     overflow: "visible",
     padding: 4,
-    position: "absolute",
+    position: "fixed" as unknown as "absolute",
     width: 328,
     zIndex: 30,
   },
