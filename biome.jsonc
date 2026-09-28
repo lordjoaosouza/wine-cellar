@@ -1,0 +1,25 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
+  "files": {
+    "includes": [
+      "src/**",
+      "scripts/**",
+      "*.ts",
+      "*.js",
+      "!server",
+      "!ios",
+      "!android"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "complexity": {
+        "noVoid": "off"
+      },
+      "performance": {
+        "noAwaitInLoops": "off"
+      }
+    }
+  }
+}

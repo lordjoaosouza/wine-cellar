@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/coverage
+.expo
+web-build
+ios
+android
+.git
+.idea
+**/.env
+**/.env.*
+!**/.env.example
+server/uploads
